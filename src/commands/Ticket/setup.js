@@ -2,53 +2,56 @@ import {
   SlashCommandBuilder,
   PermissionFlagsBits,
   ChannelType,
+  EmbedBuilder,
 } from 'discord.js';
-import { sendTicketPanel } from '../../features/wisxoTicket.js';
+import {
+  sendTicketPanel,
+  setTicketFeedbackChannel,
+} from '../../features/wisxoTicket.js';
 
 export default {
   data: new SlashCommandBuilder()
     .setName('ticketsetup')
-    .setDescription('Set up the Wisxo ticket panel (creates #create-ticket if needed)')
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+    .setDescription('Configura el panel de tickets y el canal de calificaciones')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .addChannelOption((opt) =>
+      opt
+        .setName('panel')
+        .setDescription('Canal donde se enviará el embed para abrir tickets')
+        .addChannelTypes(ChannelType.GuildText)
+        .setRequired(true)
+    )
+    .addChannelOption((opt) =>
+      opt
+        .setName('feedback')
+        .setDescription('Canal donde llegarán las calificaciones (estrellas)')
+        .addChannelTypes(ChannelType.GuildText)
+        .setRequired(true)
+    ),
 
   category: 'Ticket',
 
   async execute(interaction) {
-    const guild = interaction.guild;
-    let channel = guild.channels.cache.find(
-      (c) => c.name === 'create-ticket' && c.type === ChannelType.GuildText
-    );
+    const panelChannel = interaction.options.getChannel('panel');
+    const feedbackChannel = interaction.options.getChannel('feedback');
 
-    if (!channel) {
-      try {
-        channel = await guild.channels.create({
-          name: 'create-ticket',
-          type: ChannelType.GuildText,
-          permissionOverwrites: [
-            {
-              id: guild.roles.everyone.id,
-              allow: [PermissionFlagsBits.ViewChannel],
-              deny: [PermissionFlagsBits.SendMessages, PermissionFlagsBits.AddReactions],
-            },
-            {
-              id: guild.members.me.id,
-              allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages],
-            },
-          ],
-        });
-      } catch (error) {
-        await interaction.reply({
-          content: `Failed to create channel: ${error.message}`,
-          ephemeral: true,
-        });
-        return;
-      }
-    }
+    // Guardar canal de feedback
+    await setTicketFeedbackChannel(interaction.guild.id, feedbackChannel.id);
 
-    await sendTicketPanel(channel);
-    await interaction.reply({
-      content: `Ticket panel setup successfully in ${channel}!`,
-      ephemeral: true,
-    });
+    // Enviar panel de tickets
+    await sendTicketPanel(panelChannel);
+
+    const embed = new EmbedBuilder()
+      .setColor(0x9B59B6)
+      .setAuthor({ name: 'Envenenado RP' })
+      .setTitle('Tickets configurados')
+      .setDescription('El sistema de tickets quedó listo.')
+      .addFields(
+        { name: '📌 Panel de tickets', value: `${panelChannel}`, inline: true },
+        { name: '⭐ Canal de feedback', value: `${feedbackChannel}`, inline: true },
+      )
+      .setFooter({ text: 'Powered by Bandido' });
+
+    await interaction.reply({ embeds: [embed], ephemeral: true });
   },
 };
