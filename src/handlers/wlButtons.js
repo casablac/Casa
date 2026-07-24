@@ -67,8 +67,8 @@ async function handleReview(interaction, client, isApprove) {
     }
 
     // Evitar procesar dos veces
-    const statusField = originalEmbed.fields?.find(
-      (f) => f.name?.toLowerCase().includes('estado'),
+    const statusField = originalEmbed.fields?.find((f) =>
+      f.name?.toLowerCase().includes('estado'),
     );
     if (statusField && /aprobad|rechazad/i.test(statusField.value || '')) {
       return await replyUserError(interaction, {
@@ -95,37 +95,37 @@ async function handleReview(interaction, client, isApprove) {
       }
     }
 
-const statusColor = isApprove ? 0x57f287 : 0xed4245;
-const statusEmoji = isApprove ? '🟢' : '🔴';
-const statusText = isApprove
-  ? `${statusEmoji} Aprobado por ${interaction.user}`
-  : `${statusEmoji} Rechazado por ${interaction.user}`;
+    const statusColor = isApprove ? 0x57f287 : 0xed4245;
+    const statusEmoji = isApprove ? '🟢' : '🔴';
+    const statusText = isApprove
+      ? `${statusEmoji} Aprobado por ${interaction.user}`
+      : `${statusEmoji} Rechazado por ${interaction.user}`;
 
-const updatedEmbed = EmbedBuilder.from(originalEmbed)
-  .setColor(statusColor)
-  .setFields(
-    ...(originalEmbed.fields || []).map((field) => {
-      if (field.name?.toLowerCase().includes('estado')) {
-        return {
-          name: field.name,
-          value: statusText,
-          inline: field.inline,
-        };
-      }
-      return field;
-    }),
-  )
-  .setFooter({
-    text: 'Sistema de Whitelist',
-  })
-  .setTimestamp();
+    const updatedEmbed = EmbedBuilder.from(originalEmbed)
+      .setColor(statusColor)
+      .setFields(
+        ...(originalEmbed.fields || []).map((field) => {
+          if (field.name?.toLowerCase().includes('estado')) {
+            return {
+              name: field.name,
+              value: statusText,
+              inline: field.inline,
+            };
+          }
+          return field;
+        }),
+      )
+      .setFooter({
+        text: 'Sistema de Whitelist',
+      })
+      .setTimestamp();
 
     await interaction.message.edit({
       embeds: [updatedEmbed],
       components: [buildDisabledButtons(isApprove)],
     });
 
-    // DM al usuario (si tiene abiertos)
+    // DM al usuario
     try {
       const user = await client.users.fetch(userId);
       await user.send({
@@ -133,16 +133,45 @@ const updatedEmbed = EmbedBuilder.from(originalEmbed)
           successEmbed(
             isApprove ? 'Whitelist aprobada' : 'Whitelist rechazada',
             isApprove
-              ? `Tu solicitud de **Whitelist** en **${guild.name}** fue **aprobada**.${
+              ? `Tu solicitud de **Whitelist** en **${guild.name}** fue **aprobada** por ${interaction.user}.${
                   roleAssigned ? `\nSe te asignó el rol **${roleName}**.` : ''
                 }`
-              : `Tu solicitud de **Whitelist** en **${guild.name}** fue **rechazada**.`,
+              : `Tu solicitud de **Whitelist** en **${guild.name}** fue **rechazada** por ${interaction.user}.`,
           ).setColor(statusColor),
         ],
       });
     } catch {
-      // DSiguiente paso: **crear los botones de Aprobar / Rechazar**.
+      // DMs cerrados
+    }
 
-### 1. Crea este archivo en GitHub:
+    await InteractionHelper.safeEditReply(interaction, {
+      embeds: [
+        successEmbed(
+          isApprove ? 'Solicitud aprobada' : 'Solicitud rechazada',
+          isApprove
+            ? `Se aprobó la WL de <@${userId}>.${roleAssigned ? ` Rol **${roleName}** asignado.` : ''}`
+            : `Se rechazó la WL de <@${userId}>.`,
+        ),
+      ],
+    });
+  } catch (error) {
+    logger.error('Error handling WL button', { error: error.message });
+    await handleInteractionError(interaction, error, {
+      type: 'button',
+      handler: 'wl_review',
+    });
+  }
+}
 
-**Add file → Create new file** y pon este nombre:
+export async function handleWlApprove(interaction, client) {
+  return handleReview(interaction, client, true);
+}
+
+export async function handleWlReject(interaction, client) {
+  return handleReview(interaction, client, false);
+}
+
+export default {
+  handleWlApprove,
+  handleWlReject,
+};
