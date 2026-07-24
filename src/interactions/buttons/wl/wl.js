@@ -82,6 +82,7 @@ async function handleReview(interaction, client, isApprove) {
       try {
         const member = await guild.members.fetch(userId).catch(() => null);
         const role = guild.roles.cache.get(wl.roleId);
+
         if (member && role) {
           await member.roles.add(role, `WL aprobada por ${interaction.user.tag}`);
           roleAssigned = true;
@@ -92,9 +93,11 @@ async function handleReview(interaction, client, isApprove) {
       }
     }
 
-    const newStatus = isApprove ? 'Aprobada' : 'Rechazada';
     const statusColor = isApprove ? 0x57f287 : 0xed4245;
     const statusEmoji = isApprove ? '🟢' : '🔴';
+    const statusText = isApprove
+      ? `${statusEmoji} Aprobado por ${interaction.user}`
+      : `${statusEmoji} Rechazado por ${interaction.user}`;
 
     const updatedEmbed = EmbedBuilder.from(originalEmbed)
       .setColor(statusColor)
@@ -103,7 +106,7 @@ async function handleReview(interaction, client, isApprove) {
           if (field.name?.toLowerCase().includes('estado')) {
             return {
               name: field.name,
-              value: `${statusEmoji} ${newStatus}`,
+              value: statusText,
               inline: field.inline,
             };
           }
@@ -111,7 +114,7 @@ async function handleReview(interaction, client, isApprove) {
         }),
       )
       .setFooter({
-        text: `${isApprove ? 'Aprobada' : 'Rechazada'} por ${interaction.user.tag} • Sistema de Whitelist`,
+        text: 'Sistema de Whitelist',
       })
       .setTimestamp();
 
@@ -127,10 +130,10 @@ async function handleReview(interaction, client, isApprove) {
           successEmbed(
             isApprove ? 'Whitelist aprobada' : 'Whitelist rechazada',
             isApprove
-              ? `Tu solicitud de **Whitelist** en **${guild.name}** fue **aprobada**.${
+              ? `Tu solicitud de **Whitelist** en **${guild.name}** fue **aprobada** por ${interaction.user}.${
                   roleAssigned ? `\nSe te asignó el rol **${roleName}**.` : ''
                 }`
-              : `Tu solicitud de **Whitelist** en **${guild.name}** fue **rechazada**.`,
+              : `Tu solicitud de **Whitelist** en **${guild.name}** fue **rechazada** por ${interaction.user}.`,
           ).setColor(statusColor),
         ],
       });
