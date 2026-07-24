@@ -12,10 +12,12 @@ const SELECT_ID = 'wisxo_ticket_select';
 const CLAIM_ID = 'wisxo_claim_ticket_btn';
 const CLOSE_ID = 'wisxo_close_ticket_btn';
 
+const BANNER_URL = 'https://media.discordapp.net/attachments/1529542705343102987/1529551027680841808/envenenado_rp.gif';
+
 const TICKET_OPTIONS = [
   { label: 'Soporte', description: 'Soporte', emoji: '💜', value: 'soporte' },
   { label: 'Reportar Staff', description: 'Reportar Miembro De Staff', emoji: '🔴', value: 'reportar' },
-  { label: 'Donacion ', description: 'Para Doncacion ', emoji: '💳', value: 'donacion' },
+  { label: 'Donacion', description: 'Para Donacion', emoji: '💳', value: 'donacion' },
   { label: 'Apelar Ban', description: 'Apelar Tu Ban', emoji: '🔨', value: 'apelacion' },
 ];
 
@@ -24,7 +26,6 @@ function buildPanelView() {
     .setCustomId(SELECT_ID)
     .setPlaceholder('Haz una selección')
     .addOptions(TICKET_OPTIONS);
-
   return new ActionRowBuilder().addComponents(select);
 }
 
@@ -35,28 +36,26 @@ function buildActionView(claimedBy = null) {
     .setStyle(ButtonStyle.Success)
     .setEmoji('🙋')
     .setDisabled(Boolean(claimedBy));
-
   const closeBtn = new ButtonBuilder()
     .setCustomId(CLOSE_ID)
     .setLabel('Cerrar Ticket')
     .setStyle(ButtonStyle.Danger)
     .setEmoji('🔒');
-
   return new ActionRowBuilder().addComponents(claimBtn, closeBtn);
 }
 
 function welcomeMessage(value, member) {
   switch (value) {
     case 'soporte':
-      return `Bienvenid@ ${member} Tickets de soporte. Por favor, describe tu problema.`;
+      return `Bienvenid@ ${member} a Tickets de soporte. Por favor, describe tu problema.`;
     case 'reportar':
-      return `Bienvenid@ ${member} Al informe del personal. Por favor, proporciona los detalles del informe.`;
+      return `Bienvenid@ ${member} al informe del staff. Por favor, proporciona los detalles del reporte.`;
     case 'donacion':
       return `Bienvenid@ ${member}. ¡Gracias por considerar hacer una donación! ¿Cómo podemos ayudar?`;
     case 'apelacion':
       return `Bienvenid@ ${member}. Por favor, proporciona detalles para tu apelación de baneo.`;
     default:
-      return `Welcome ${member}. Please describe your request.`;
+      return `Bienvenid@ ${member}. Por favor describe tu solicitud.`;
   }
 }
 
@@ -158,9 +157,10 @@ async function createTicket(interaction) {
     });
 
     const embed = new EmbedBuilder()
-      .setTitle(`Ticket Opened - ${value.charAt(0).toUpperCase()}${value.slice(1)}`)
+      .setTitle(`Ticket abierto - ${value.charAt(0).toUpperCase()}${value.slice(1)}`)
       .setDescription(welcomeMessage(value, member))
-      .setColor(0x2b2d31);
+      .setColor(0x2b2d31)
+      .setImage(BANNER_URL);
 
     await channel.send({
       content: `${member}`,
@@ -168,7 +168,7 @@ async function createTicket(interaction) {
       components: [buildActionView()],
     });
 
-    await interaction.reply({ content: `Ticket created! ${channel}`, ephemeral: true });
+    await interaction.reply({ content: `¡Ticket creado! ${channel}`, ephemeral: true });
   } catch (error) {
     console.error('Error creating ticket:', error);
     if (interaction.replied || interaction.deferred) {
@@ -182,11 +182,11 @@ async function createTicket(interaction) {
 
 async function claimTicket(interaction) {
   if (!canManageTickets(interaction.member)) {
-    await interaction.reply({ content: "No tienes permiso para reclamar este ticket.", ephemeral: true });
+    await interaction.reply({ content: 'No tienes permiso para reclamar este ticket.', ephemeral: true });
     return true;
   }
   await interaction.update({ components: [buildActionView(interaction.user.displayName)] });
-  await interaction.channel.send(`Ticket has been claimed by ${interaction.user}.`);
+  await interaction.channel.send(`El ticket ha sido reclamado por ${interaction.user}.`);
   return true;
 }
 
@@ -207,9 +207,10 @@ async function closeTicket(interaction) {
 export async function sendTicketPanel(channel) {
   const embed = new EmbedBuilder()
     .setTitle('Centro de Soporte | ENVENENADO RP')
-    .setDescription('Abre un ticket interactuando con alguno de los botones que estan abajo recuerda que si abres ticket sin una razon podras ser sancionado.')
+    .setDescription('Abre un ticket interactuando con el menú de abajo. Recuerda que si abres un ticket sin razón podrás ser sancionado.')
     .setColor(0x2b2d31)
-    .setFooter({ text: 'TicketTool.xyz - Ticketing without clutter' });
+    .setImage(BANNER_URL)
+    .setFooter({ text: 'Envenenado RP • Sistema de Tickets' });
 
   await channel.send({ embeds: [embed], components: [buildPanelView()] });
 }
