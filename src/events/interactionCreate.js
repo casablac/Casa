@@ -19,6 +19,7 @@ import { resolveSlashAccessKey } from '../utils/messageAdapter.js';
 import { isCollectorManagedComponent } from '../utils/collectorComponents.js';
 import { ResponseCoordinator } from '../utils/responseCoordinator.js';
 import { enforceDefaultCommandPermissions } from '../utils/permissionGuard.js';
+import { handleWisxoTicketInteraction, isWisxoTicketInteraction } from '../features/wisxoTicket.js';
 
 const COMMAND_ERROR_SUBTYPES = {
   warn: 'warn_failed',
@@ -57,6 +58,12 @@ export default {
       try {
         InteractionHelper.patchInteractionResponses(interaction);
         ResponseCoordinator.attach(interaction);
+
+        // Wisxo Ticket system
+        if (isWisxoTicketInteraction(interaction)) {
+          await handleWisxoTicketInteraction(interaction);
+          return;
+        }
 
         if (interaction.isChatInputCommand()) {
           try {
@@ -185,18 +192,17 @@ export default {
           }
 
           const focusedOption = interaction.options.getFocused(true);
-          
+
           if (interaction.commandName === 'apply' && focusedOption.name === 'application') {
             try {
               const { getApplicationRoles } = await import('../utils/database.js');
               const roles = await getApplicationRoles(client, interaction.guildId);
               const roleName = interaction.options.getString('application', false);
-
               const filtered = roles.filter(role =>
-                role.enabled !== false && 
+                role.enabled !== false &&
                 role.name.toLowerCase().startsWith(roleName?.toLowerCase() || '')
               );
-              
+
               await interaction.respond(
                 filtered.slice(0, 25).map(role => ({
                   name: `${role.name}${role.enabled === false ? ' (disabled)' : ''}`,
@@ -216,11 +222,10 @@ export default {
               const { getApplicationRoles } = await import('../utils/database.js');
               const roles = await getApplicationRoles(client, interaction.guildId);
               const appName = interaction.options.getString('application', false);
-
               const filtered = roles.filter(role =>
                 role.name.toLowerCase().startsWith(appName?.toLowerCase() || '')
               );
-              
+
               await interaction.respond(
                 filtered.slice(0, 25).map(role => ({
                   name: `${role.name}${role.enabled === false ? ' (disabled)' : ''}`,
@@ -240,9 +245,9 @@ export default {
               const { getAllReactionRoleMessages, deleteReactionRoleMessage } = await import('../services/reactionRoleService.js');
               const guildId = interaction.guildId;
               const guild = interaction.guild;
-              
+
               let panels = await getAllReactionRoleMessages(client, guildId);
-              
+
               if (!panels || panels.length === 0) {
                 await interaction.respond([]);
                 return;
@@ -253,13 +258,13 @@ export default {
                 if (!panel.messageId || !panel.channelId) {
                   continue;
                 }
-                
+
                 const channel = guild.channels.cache.get(panel.channelId);
                 if (!channel) {
                   await deleteReactionRoleMessage(client, guildId, panel.messageId).catch(() => {});
                   continue;
                 }
-                
+
                 const msg = await channel.messages.fetch(panel.messageId).catch(() => null);
                 if (!msg) {
                   await deleteReactionRoleMessage(client, guildId, panel.messageId).catch(() => {});
@@ -267,24 +272,24 @@ export default {
                 }
                 validPanels.push(panel);
               }
-              
+
               if (validPanels.length === 0) {
                 await interaction.respond([]);
                 return;
               }
-              
+
               const choices = await Promise.all(
                 validPanels.slice(0, 25).map(async panel => {
                   try {
                     const channel = guild.channels.cache.get(panel.channelId);
                     if (!channel) return null;
-                    
+
                     const msg = await channel.messages.fetch(panel.messageId).catch(() => null);
                     if (!msg) return null;
-                    
+
                     const title = msg?.embeds?.[0]?.title ?? 'Untitled Panel';
                     const channelName = channel?.name ?? 'unknown';
-                    
+
                     return {
                       name: `${title} (${channelName})`.substring(0, 100),
                       value: panel.messageId
@@ -294,7 +299,7 @@ export default {
                   }
                 })
               );
-              
+
               const validChoices = choices.filter(c => c !== null);
               await interaction.respond(validChoices);
             } catch (error) {
@@ -312,7 +317,6 @@ export default {
             const buttonType = parts.slice(0, 3).join('_');
             const listId = parts[3];
             const button = client.buttons.get(buttonType);
-
             if (button) {
               try {
                 await button.execute(interaction, client, [listId]);
@@ -336,12 +340,10 @@ export default {
 
           const [customId, ...args] = interaction.customId.split(':');
           const button = client.buttons.get(customId);
-
           if (!button) {
             if (!interaction.customId.includes(':') || isCollectorManagedComponent(customId)) {
               return;
             }
-
             throw createError(
               `No button handler found for ${customId}`,
               ErrorTypes.CONFIGURATION,
@@ -349,7 +351,6 @@ export default {
               withTraceContext({ customId }, interactionTraceContext)
             );
           }
-
           try {
             await button.execute(interaction, client, args);
           } catch (error) {
@@ -362,12 +363,10 @@ export default {
         } else if (interaction.isStringSelectMenu()) {
           const [customId, ...args] = interaction.customId.split(':');
           const selectMenu = client.selectMenus.get(customId);
-
           if (!selectMenu) {
             if (!interaction.customId.includes(':') || isCollectorManagedComponent(customId)) {
               return;
             }
-
             throw createError(
               `No select menu handler found for ${customId}`,
               ErrorTypes.CONFIGURATION,
@@ -375,7 +374,6 @@ export default {
               withTraceContext({ customId }, interactionTraceContext)
             );
           }
-
           try {
             await selectMenu.execute(interaction, client, args);
           } catch (error) {
@@ -414,13 +412,10 @@ export default {
 
           const [customId, ...args] = interaction.customId.split(':');
           const modal = client.modals.get(customId);
-
           if (!modal) {
             if (!interaction.customId.includes(':')) {
-
               return;
             }
-
             throw createError(
               `No modal handler found for ${customId}`,
               ErrorTypes.CONFIGURATION,
@@ -428,7 +423,6 @@ export default {
               withTraceContext({ customId }, interactionTraceContext)
             );
           }
-
           try {
             await modal.execute(interaction, client, args);
           } catch (error) {
@@ -449,7 +443,6 @@ export default {
           guildId: interaction.guildId,
           userId: interaction.user?.id
         });
-
         try {
           await handleInteractionError(interaction, error, withTraceContext({
             type: 'interaction',
