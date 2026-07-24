@@ -157,10 +157,12 @@ async function createTicket(interaction) {
     });
 
     const embed = new EmbedBuilder()
+      .setAuthor({ name: 'Envenenado RP' })
       .setTitle(`Ticket abierto - ${value.charAt(0).toUpperCase()}${value.slice(1)}`)
       .setDescription(welcomeMessage(value, member))
-      .setColor(0x2b2d31)
-      .setImage(BANNER_URL);
+      .setColor(0x9B59B6)
+      .setImage(BANNER_URL)
+      .setFooter({ text: 'Powered by Bandido' });
 
     await channel.send({
       content: `${member}`,
@@ -206,11 +208,12 @@ async function closeTicket(interaction) {
 
 export async function sendTicketPanel(channel) {
   const embed = new EmbedBuilder()
-    .setTitle('Centro de Soporte | ENVENENADO RP')
-    .setDescription('Abre un ticket interactuando con el menú de abajo. Recuerda que si abres un ticket sin razón podrás ser sancionado.')
-    .setColor(0x2b2d31)
+    .setAuthor({ name: 'Envenenado RP' })
+    .setTitle('Ayuda y Soporte')
+    .setDescription('Abre un ticket interactuando con el menú de abajo. Recuerda que si abres ticket sin una razón podrás ser sancionado.')
+    .setColor(0x9B59B6)
     .setImage(BANNER_URL)
-    .setFooter({ text: 'Envenenado RP • Sistema de Tickets' });
+    .setFooter({ text: 'Powered by Bandido' });
 
   await channel.send({ embeds: [embed], components: [buildPanelView()] });
 }
