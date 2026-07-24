@@ -7,12 +7,13 @@ import {
 import {
   sendTicketPanel,
   setTicketFeedbackChannel,
+  setTicketLogsChannel,
 } from '../../features/wisxoTicket.js';
 
 export default {
   data: new SlashCommandBuilder()
     .setName('ticketsetup')
-    .setDescription('Configura el panel de tickets y el canal de calificaciones')
+    .setDescription('Configura panel, feedback y logs de tickets')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addChannelOption((opt) =>
       opt
@@ -27,6 +28,13 @@ export default {
         .setDescription('Canal donde llegarán las calificaciones (estrellas)')
         .addChannelTypes(ChannelType.GuildText)
         .setRequired(true)
+    )
+    .addChannelOption((opt) =>
+      opt
+        .setName('logs')
+        .setDescription('Canal de logs (quién creó / reclamó / cerró el ticket)')
+        .addChannelTypes(ChannelType.GuildText)
+        .setRequired(true)
     ),
 
   category: 'Ticket',
@@ -34,8 +42,10 @@ export default {
   async execute(interaction) {
     const panelChannel = interaction.options.getChannel('panel');
     const feedbackChannel = interaction.options.getChannel('feedback');
+    const logsChannel = interaction.options.getChannel('logs');
 
     await setTicketFeedbackChannel(interaction.guild.id, feedbackChannel.id);
+    await setTicketLogsChannel(interaction.guild.id, logsChannel.id);
     await sendTicketPanel(panelChannel);
 
     const embed = new EmbedBuilder()
@@ -45,7 +55,8 @@ export default {
       .setDescription('El sistema de tickets quedó listo.')
       .addFields(
         { name: '📌 Panel de tickets', value: `${panelChannel}`, inline: true },
-        { name: '⭐ Canal de feedback', value: `${feedbackChannel}`, inline: true }
+        { name: '⭐ Canal de feedback', value: `${feedbackChannel}`, inline: true },
+        { name: '📋 Canal de logs', value: `${logsChannel}`, inline: true }
       )
       .setFooter({ text: 'Powered by Bandido' });
 
