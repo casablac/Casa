@@ -952,10 +952,14 @@ async function handlePostEmbed(selectInteraction, rootInteraction, state, guild)
 
     await selectInteraction.deferUpdate();
 
-    const chanSelect = new ChannelSelectMenuBuilder()
-        .setCustomId('eb_post_channel')
-        .setPlaceholder('Select a channel...')
-        .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement);
+const chanSelect = new ChannelSelectMenuBuilder()
+    .setCustomId('eb_post_channel')
+    .setPlaceholder('Select a channel...')
+    .addChannelTypes(
+        ChannelType.GuildText,
+        ChannelType.GuildAnnouncement,
+        ChannelType.GuildForum
+    );
 
     await selectInteraction.followUp({
         embeds: [
