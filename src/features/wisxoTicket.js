@@ -7,10 +7,18 @@ import {
   ChannelType,
   PermissionFlagsBits,
 } from 'discord.js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const CONFIG_PATH = path.join(__dirname, '../../data/ticket-logs.json');
 
 const SELECT_ID = 'wisxo_ticket_select';
 const CLAIM_ID = 'wisxo_claim_ticket_btn';
 const CLOSE_ID = 'wisxo_close_ticket_btn';
+const RATE_PREFIX = 'wisxo_rate_'; // wisxo_rate_1 ... wisxo_rate_5
 
 const BANNER_URL = 'https://media.discordapp.net/attachments/1529542705343102987/1529551027680841808/envenenado_rp.gif';
 
@@ -19,8 +27,51 @@ const TICKET_OPTIONS = [
   { label: 'Reportar Staff', description: 'Reportar Miembro De Staff', emoji: '🔴', value: 'reportar' },
   { label: 'Donacion', description: 'Para Donacion', emoji: '💳', value: 'donacion' },
   { label: 'Apelar Ban', description: 'Apelar Tu Ban', emoji: '🔨', value: 'apelacion' },
-  { label: 'Organizaciones', description: 'Para Crar Org', emoji: '🔫', value: 'organizaciones' },
+  { label: 'Organizaciones', description: 'Para Crear Org', emoji: '🔫', value: 'organizaciones' },
 ];
+
+function ensureConfigFile() {
+  const dir = path.dirname(CONFIG_PATH);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  if (!fs.existsSync(CONFIG_PATH)) fs.writeFileSync(CONFIG_PATH, '{}', 'utf8');
+}
+
+function readConfig() {
+  try {
+    ensureConfigFile();
+    return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8') || '{}');
+  } catch {
+    return {};
+  }
+}
+
+function writeConfig(data) {
+  ensureConfigFile();
+  fs.writeFileSync(CONFIG_PATH, JSON.stringify(data, null, 2), 'utf8');
+}
+
+export function getTicketLogsChannelId(guildId) {
+  const config = readConfig();
+  return config[`${guildId}_logs`] || config[guildId] || process.env.TICKET_LOGS_CHANNEL_ID || null;
+}
+
+export function getTicketFeedbackChannelId(guildId) {
+  const config = readConfig();
+  return config[`${guildId}_feedback`] || process.env.TICKET_FEEDBACK_CHANNEL_ID || null;
+}
+
+export async function setTicketLogsChannel(guildId, channelId) {
+  const config = readConfig();
+  config[`${guildId}_logs`] = channelId;
+  config[guildId] = channelId; // compatibilidad
+  writeConfig(config);
+}
+
+export async function setTicketFeedbackChannel(guildId, channelId) {
+  const config = readConfig();
+  config[`${guildId}_feedback`] = channelId;
+  writeConfig(config);
+}
 
 function buildPanelView() {
   const select = new StringSelectMenuBuilder()
@@ -45,6 +96,24 @@ function buildActionView(claimedBy = null) {
   return new ActionRowBuilder().addComponents(claimBtn, closeBtn);
 }
 
+function buildRatingView() {
+  const row = new ActionRowBuilder();
+  for (let i = 1; i <= 5; i++) {
+    row.addComponents(
+      new ButtonBuilder()
+        .setCustomId(`${RATE_PREFIX}${i}`)
+        .setLabel(`${i}`)
+        .setEmoji('⭐')
+        .setStyle(ButtonStyle.Secondary),
+    );
+  }
+  return row;
+}
+
+function starsText(n) {
+  return '⭐'.repeat(n) + '☆'.repeat(5 - n);
+}
+
 function welcomeMessage(value, member) {
   switch (value) {
     case 'soporte':
@@ -55,8 +124,10 @@ function welcomeMessage(value, member) {
       return `Bienvenid@ ${member}. ¡Gracias por considerar hacer una donación! ¿Cómo podemos ayudar?`;
     case 'apelacion':
       return `Bienvenid@ ${member}. Por favor, proporciona detalles para tu apelación de baneo.`;
-    case 'org':
-      return `Bienvenid@ ${member}. Aqui es para crear tu organizacion.`;
+    case 'organizaciones':
+      return `Bienvenid@ ${member}. Aquí es para crear tu organización.`;
+    default:
+      return `Bienvenid@ ${member}. Por favor describe tu solicitud.`;
   }
 }
 
@@ -65,6 +136,46 @@ function canManageTickets(member) {
   const roleId = process.env.SUPPORT_ROLE_ID;
   if (roleId && member.roles.cache.has(roleId)) return true;
   return false;
+}
+
+async function sendTicketLog(guild, { title, color, fields, user }) {
+  const channelId = getTicketLogsChannelId(guild.id);
+  if (!channelId) return;
+  const channel = guild.channels.cache.get(channelId);
+  if (!channel) return;
+
+  const embed = new EmbedBuilder()
+    .setAuthor({ name: 'Envenenado RP • Logs de Tickets' })
+    .setTitle(title)
+    .setColor(color)
+    .addFields(fields)
+    .setTimestamp()
+    .setFooter({ text: 'Powered by Bandido' });
+
+  if (user) embed.setThumbnail(user.displayAvatarURL({ size: 256 }));
+  await channel.send({ embeds: [embed] }).catch(() => {});
+}
+
+async function sendTicketFeedback(guild, { user, stars, channelName }) {
+  const channelId = getTicketFeedbackChannelId(guild.id);
+  if (!channelId) return;
+  const channel = guild.channels.cache.get(channelId);
+  if (!channel) return;
+
+  const embed = new EmbedBuilder()
+    .setAuthor({ name: 'Envenenado RP • Calificación de Ticket' })
+    .setTitle('Nueva calificación')
+    .setColor(0xFEE75C)
+    .addFields(
+      { name: 'Usuario', value: `${user} (\`${user.id}\`)`, inline: true },
+      { name: 'Calificación', value: `${starsText(stars)} (${stars}/5)`, inline: true },
+      { name: 'Ticket', value: `\`${channelName}\``, inline: true },
+    )
+    .setThumbnail(user.displayAvatarURL({ size: 256 }))
+    .setTimestamp()
+    .setFooter({ text: 'Powered by Bandido' });
+
+  await channel.send({ embeds: [embed] }).catch(() => {});
 }
 
 export async function handleWisxoTicketInteraction(interaction) {
@@ -76,6 +187,9 @@ export async function handleWisxoTicketInteraction(interaction) {
   }
   if (interaction.isButton() && interaction.customId === CLOSE_ID) {
     return closeTicket(interaction);
+  }
+  if (interaction.isButton() && interaction.customId.startsWith(RATE_PREFIX)) {
+    return rateTicket(interaction);
   }
   return false;
 }
@@ -172,6 +286,17 @@ async function createTicket(interaction) {
     });
 
     await interaction.reply({ content: `¡Ticket creado! ${channel}`, ephemeral: true });
+
+    await sendTicketLog(guild, {
+      title: '🎫 Ticket creado',
+      color: 0x57F287,
+      user: member.user,
+      fields: [
+        { name: 'Usuario', value: `${member} (\`${member.id}\`)`, inline: true },
+        { name: 'Categoría', value: value, inline: true },
+        { name: 'Canal', value: `${channel}`, inline: true },
+      ],
+    });
   } catch (error) {
     console.error('Error creating ticket:', error);
     if (interaction.replied || interaction.deferred) {
@@ -188,8 +313,20 @@ async function claimTicket(interaction) {
     await interaction.reply({ content: 'No tienes permiso para reclamar este ticket.', ephemeral: true });
     return true;
   }
+
   await interaction.update({ components: [buildActionView(interaction.user.displayName)] });
   await interaction.channel.send(`El ticket ha sido reclamado por ${interaction.user}.`);
+
+  await sendTicketLog(interaction.guild, {
+    title: '🙋 Ticket reclamado',
+    color: 0x5865F2,
+    user: interaction.user,
+    fields: [
+      { name: 'Staff', value: `${interaction.user} (\`${interaction.user.id}\`)`, inline: true },
+      { name: 'Canal', value: `${interaction.channel}`, inline: true },
+    ],
+  });
+
   return true;
 }
 
@@ -200,10 +337,71 @@ async function closeTicket(interaction) {
     await interaction.reply({ content: 'Solo el personal o quien creó el ticket puede cerrarlo.', ephemeral: true });
     return true;
   }
-  await interaction.reply({ content: 'Cerrando el ticket en 5 segundos...' });
+
+  await sendTicketLog(interaction.guild, {
+    title: '🔒 Ticket cerrado',
+    color: 0xED4245,
+    user: interaction.user,
+    fields: [
+      { name: 'Cerrado por', value: `${interaction.user} (\`${interaction.user.id}\`)`, inline: true },
+      { name: 'Canal', value: `\`${interaction.channel.name}\``, inline: true },
+    ],
+  });
+
+  // Pantalla de estrellas
+  const rateEmbed = new EmbedBuilder()
+    .setAuthor({ name: 'Envenenado RP' })
+    .setTitle('¿Cómo calificas la atención?')
+    .setDescription('Selecciona de **1 a 5 estrellas**.\nEl ticket se cerrará al votar (o en 60 segundos).')
+    .setColor(0xFEE75C)
+    .setFooter({ text: 'Powered by Bandido' });
+
+  await interaction.reply({
+    embeds: [rateEmbed],
+    components: [buildRatingView()],
+  });
+
+  // Si nadie vota, cierra en 60s
+  const channel = interaction.channel;
+  setTimeout(() => {
+    if (channel && !channel.deleted) {
+      channel.delete().catch(() => {});
+    }
+  }, 60000);
+
+  return true;
+}
+
+async function rateTicket(interaction) {
+  const stars = Number(interaction.customId.replace(RATE_PREFIX, ''));
+  if (!stars || stars < 1 || stars > 5) {
+    await interaction.reply({ content: 'Calificación inválida.', ephemeral: true });
+    return true;
+  }
+
+  const channelName = interaction.channel.name;
+
+  await sendTicketFeedback(interaction.guild, {
+    user: interaction.user,
+    stars,
+    channelName,
+  });
+
+  const thanks = new EmbedBuilder()
+    .setColor(0x57F287)
+    .setTitle('¡Gracias por tu calificación!')
+    .setDescription(`Tu voto: **${starsText(stars)}** (${stars}/5)\nCerrando el ticket...`)
+    .setFooter({ text: 'Powered by Bandido' });
+
+  await interaction.update({
+    embeds: [thanks],
+    components: [],
+  });
+
   setTimeout(() => {
     interaction.channel.delete().catch(() => {});
-  }, 5000);
+  }, 3000);
+
   return true;
 }
 
@@ -221,6 +419,13 @@ export async function sendTicketPanel(channel) {
 
 export function isWisxoTicketInteraction(interaction) {
   if (interaction.isStringSelectMenu() && interaction.customId === SELECT_ID) return true;
-  if (interaction.isButton() && (interaction.customId === CLAIM_ID || interaction.customId === CLOSE_ID)) return true;
+  if (
+    interaction.isButton() &&
+    (interaction.customId === CLAIM_ID ||
+      interaction.customId === CLOSE_ID ||
+      interaction.customId.startsWith(RATE_PREFIX))
+  ) {
+    return true;
+  }
   return false;
 }
