@@ -35,10 +35,7 @@ export default {
     const panelChannel = interaction.options.getChannel('panel');
     const feedbackChannel = interaction.options.getChannel('feedback');
 
-    // Guardar canal de feedback
     await setTicketFeedbackChannel(interaction.guild.id, feedbackChannel.id);
-
-    // Enviar panel de tickets
     await sendTicketPanel(panelChannel);
 
     const embed = new EmbedBuilder()
@@ -48,7 +45,7 @@ export default {
       .setDescription('El sistema de tickets quedó listo.')
       .addFields(
         { name: '📌 Panel de tickets', value: `${panelChannel}`, inline: true },
-        { name: '⭐ Canal de feedback', value: `${feedbackChannel}`, inline: true },
+        { name: '⭐ Canal de feedback', value: `${feedbackChannel}`, inline: true }
       )
       .setFooter({ text: 'Powered by Bandido' });
 
