@@ -16,6 +16,10 @@ async function getAllInteractionFiles(directory, fileList = []) {
     const entryPath = join(directory, entry.name);
 
     if (entry.isDirectory()) {
+      // PASO 6: ignorar carpetas desactivadas (tickets viejos, etc.)
+      if (entry.name.includes('OLD_DISABLED') || entry.name.includes('_DISABLED')) {
+        continue;
+      }
       await getAllInteractionFiles(entryPath, fileList);
     } else if (entry.name.endsWith('.js')) {
       fileList.push(entryPath);
