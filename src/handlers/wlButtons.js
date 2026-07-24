@@ -95,28 +95,30 @@ async function handleReview(interaction, client, isApprove) {
       }
     }
 
-    const newStatus = isApprove ? 'Aprobada' : 'Rechazada';
-    const statusColor = isApprove ? 0x57f287 : 0xed4245;
-    const statusEmoji = isApprove ? '🟢' : '🔴';
+const statusColor = isApprove ? 0x57f287 : 0xed4245;
+const statusEmoji = isApprove ? '🟢' : '🔴';
+const statusText = isApprove
+  ? `${statusEmoji} Aprobado por ${interaction.user}`
+  : `${statusEmoji} Rechazado por ${interaction.user}`;
 
-    const updatedEmbed = EmbedBuilder.from(originalEmbed)
-      .setColor(statusColor)
-      .setFields(
-        ...(originalEmbed.fields || []).map((field) => {
-          if (field.name?.toLowerCase().includes('estado')) {
-            return {
-              name: field.name,
-              value: `${statusEmoji} ${newStatus}`,
-              inline: field.inline,
-            };
-          }
-          return field;
-        }),
-      )
-      .setFooter({
-        text: `${isApprove ? 'Aprobada' : 'Rechazada'} por ${interaction.user.tag} • Sistema de Whitelist`,
-      })
-      .setTimestamp();
+const updatedEmbed = EmbedBuilder.from(originalEmbed)
+  .setColor(statusColor)
+  .setFields(
+    ...(originalEmbed.fields || []).map((field) => {
+      if (field.name?.toLowerCase().includes('estado')) {
+        return {
+          name: field.name,
+          value: statusText,
+          inline: field.inline,
+        };
+      }
+      return field;
+    }),
+  )
+  .setFooter({
+    text: 'Sistema de Whitelist',
+  })
+  .setTimestamp();
 
     await interaction.message.edit({
       embeds: [updatedEmbed],
