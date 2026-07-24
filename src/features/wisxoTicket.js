@@ -13,16 +13,16 @@ const CLAIM_ID = 'wisxo_claim_ticket_btn';
 const CLOSE_ID = 'wisxo_close_ticket_btn';
 
 const TICKET_OPTIONS = [
-  { label: 'Support Tickets', description: 'For Support Assistance', emoji: '💜', value: 'support' },
-  { label: 'Staff Report', description: 'Report a Staff Member', emoji: '🔴', value: 'report' },
-  { label: 'Donation', description: 'For Donations', emoji: '💳', value: 'donation' },
-  { label: 'Ban Appeal', description: 'Appeal a Ban', emoji: '🔨', value: 'appeal' },
+  { label: 'Soporte', description: 'Soporte', emoji: '💜', value: 'soporte' },
+  { label: 'Reportar Staff', description: 'Reportar Miembro De Staff', emoji: '🔴', value: 'reportar' },
+  { label: 'Donacion ', description: 'Para Doncacion ', emoji: '💳', value: 'donacion' },
+  { label: 'Apelar Ban', description: 'Apelar Tu Ban', emoji: '🔨', value: 'apelacion' },
 ];
 
 function buildPanelView() {
   const select = new StringSelectMenuBuilder()
     .setCustomId(SELECT_ID)
-    .setPlaceholder('Make a selection')
+    .setPlaceholder('Haz una selección')
     .addOptions(TICKET_OPTIONS);
 
   return new ActionRowBuilder().addComponents(select);
@@ -31,14 +31,14 @@ function buildPanelView() {
 function buildActionView(claimedBy = null) {
   const claimBtn = new ButtonBuilder()
     .setCustomId(CLAIM_ID)
-    .setLabel(claimedBy ? `Claimed by ${claimedBy}` : 'Claim Ticket')
+    .setLabel(claimedBy ? `Reclamo por ${claimedBy}` : 'Reclamar Ticket')
     .setStyle(ButtonStyle.Success)
     .setEmoji('🙋')
     .setDisabled(Boolean(claimedBy));
 
   const closeBtn = new ButtonBuilder()
     .setCustomId(CLOSE_ID)
-    .setLabel('Close Ticket')
+    .setLabel('Cerrar Ticket')
     .setStyle(ButtonStyle.Danger)
     .setEmoji('🔒');
 
@@ -47,14 +47,14 @@ function buildActionView(claimedBy = null) {
 
 function welcomeMessage(value, member) {
   switch (value) {
-    case 'support':
-      return `Welcome ${member} to Support Tickets. Please describe your issue.`;
-    case 'report':
-      return `Welcome ${member} to Staff Report. Please provide the details of the report.`;
-    case 'donation':
-      return `Welcome ${member}. Thank you for considering a donation! How can we help?`;
-    case 'appeal':
-      return `Welcome ${member}. Please provide details for your ban appeal.`;
+    case 'soporte':
+      return `Bienvenid@ ${member} Tickets de soporte. Por favor, describe tu problema.`;
+    case 'reportar':
+      return `Bienvenid@ ${member} Al informe del personal. Por favor, proporciona los detalles del informe.`;
+    case 'donacion':
+      return `Bienvenid@ ${member}. ¡Gracias por considerar hacer una donación! ¿Cómo podemos ayudar?`;
+    case 'apelacion':
+      return `Bienvenid@ ${member}. Por favor, proporciona detalles para tu apelación de baneo.`;
     default:
       return `Welcome ${member}. Please describe your request.`;
   }
@@ -93,7 +93,7 @@ async function createTicket(interaction) {
     (c) => c.name === ticketName && c.type === ChannelType.GuildText
   );
   if (existing) {
-    await interaction.reply({ content: `You already have a ticket open: ${existing}`, ephemeral: true });
+    await interaction.reply({ content: `Ya tienes un ticket abierto: ${existing}`, ephemeral: true });
     return true;
   }
 
@@ -172,9 +172,9 @@ async function createTicket(interaction) {
   } catch (error) {
     console.error('Error creating ticket:', error);
     if (interaction.replied || interaction.deferred) {
-      await interaction.followUp({ content: 'There was an error creating your ticket.', ephemeral: true });
+      await interaction.followUp({ content: 'Hubo un error al crear tu ticket.', ephemeral: true });
     } else {
-      await interaction.reply({ content: 'There was an error creating your ticket.', ephemeral: true });
+      await interaction.reply({ content: 'Hubo un error al crear tu ticket.', ephemeral: true });
     }
   }
   return true;
@@ -182,7 +182,7 @@ async function createTicket(interaction) {
 
 async function claimTicket(interaction) {
   if (!canManageTickets(interaction.member)) {
-    await interaction.reply({ content: "You don't have permission to claim this ticket.", ephemeral: true });
+    await interaction.reply({ content: "No tienes permiso para reclamar este ticket.", ephemeral: true });
     return true;
   }
   await interaction.update({ components: [buildActionView(interaction.user.displayName)] });
@@ -194,10 +194,10 @@ async function closeTicket(interaction) {
   const isStaff = canManageTickets(interaction.member);
   const isCreator = interaction.channel.topic?.includes(interaction.user.id);
   if (!isStaff && !isCreator) {
-    await interaction.reply({ content: 'Only staff or the ticket creator can close this ticket.', ephemeral: true });
+    await interaction.reply({ content: 'Solo el personal o quien creó el ticket puede cerrarlo.', ephemeral: true });
     return true;
   }
-  await interaction.reply({ content: 'Closing ticket in 5 seconds...' });
+  await interaction.reply({ content: 'Cerrando el ticket en 5 segundos...' });
   setTimeout(() => {
     interaction.channel.delete().catch(() => {});
   }, 5000);
@@ -206,8 +206,8 @@ async function closeTicket(interaction) {
 
 export async function sendTicketPanel(channel) {
   const embed = new EmbedBuilder()
-    .setTitle('Wisxo Nvr Tickets')
-    .setDescription('To create a ticket use the dropdown below')
+    .setTitle('Centro de Soporte | ENVENENADO RP')
+    .setDescription('Abre un ticket interactuando con alguno de los botones que estan abajo recuerda que si abres ticket sin una razon podras ser sancionado.')
     .setColor(0x2b2d31)
     .setFooter({ text: 'TicketTool.xyz - Ticketing without clutter' });
 
