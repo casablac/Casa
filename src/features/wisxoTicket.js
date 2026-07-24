@@ -19,6 +19,7 @@ const TICKET_OPTIONS = [
   { label: 'Reportar Staff', description: 'Reportar Miembro De Staff', emoji: '🔴', value: 'reportar' },
   { label: 'Donacion', description: 'Para Donacion', emoji: '💳', value: 'donacion' },
   { label: 'Apelar Ban', description: 'Apelar Tu Ban', emoji: '🔨', value: 'apelacion' },
+  { label: 'Organizaciones', description: 'Para Crar Org', emoji: '🔫', value: 'organizaciones' },
 ];
 
 function buildPanelView() {
@@ -54,8 +55,8 @@ function welcomeMessage(value, member) {
       return `Bienvenid@ ${member}. ¡Gracias por considerar hacer una donación! ¿Cómo podemos ayudar?`;
     case 'apelacion':
       return `Bienvenid@ ${member}. Por favor, proporciona detalles para tu apelación de baneo.`;
-    default:
-      return `Bienvenid@ ${member}. Por favor describe tu solicitud.`;
+    case 'org':
+      return `Bienvenid@ ${member}. Aqui es para crear tu organizacion.`;
   }
 }
 
