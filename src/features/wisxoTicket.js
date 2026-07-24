@@ -19,7 +19,6 @@ const TICKET_OPTIONS = [
   { label: 'Reportar Staff', description: 'Reportar Miembro De Staff', emoji: '🔴', value: 'reportar' },
   { label: 'Donacion', description: 'Para Donacion', emoji: '💳', value: 'donacion' },
   { label: 'Apelar Ban', description: 'Apelar Tu Ban', emoji: '🔨', value: 'apelacion' },
-  { label: 'Organizaciones', description: 'Para Crar Org', emoji: '🔫', value: 'organizaciones' },
 ];
 
 function buildPanelView() {
@@ -55,8 +54,8 @@ function welcomeMessage(value, member) {
       return `Bienvenid@ ${member}. ¡Gracias por considerar hacer una donación! ¿Cómo podemos ayudar?`;
     case 'apelacion':
       return `Bienvenid@ ${member}. Por favor, proporciona detalles para tu apelación de baneo.`;
-    case 'org':
-      return `Bienvenid@ ${member}. Aqui es para crear tu organizacion.`;
+    default:
+      return `Bienvenid@ ${member}. Por favor describe tu solicitud.`;
   }
 }
 
@@ -65,6 +64,28 @@ function canManageTickets(member) {
   const roleId = process.env.SUPPORT_ROLE_ID;
   if (roleId && member.roles.cache.has(roleId)) return true;
   return false;
+}
+
+async function sendTicketLog(guild, { title, color, fields, user }) {
+  const channelId = process.env.TICKET_LOGS_CHANNEL_ID;
+  if (!channelId) return;
+
+  const channel = guild.channels.cache.get(channelId);
+  if (!channel) return;
+
+  const embed = new EmbedBuilder()
+    .setAuthor({ name: 'Envenenado RP • Logs de Tickets' })
+    .setTitle(title)
+    .setColor(color)
+    .addFields(fields)
+    .setTimestamp()
+    .setFooter({ text: 'Powered by Bandido' });
+
+  if (user) {
+    embed.setThumbnail(user.displayAvatarURL({ size: 256 }));
+  }
+
+  await channel.send({ embeds: [embed] }).catch(() => {});
 }
 
 export async function handleWisxoTicketInteraction(interaction) {
@@ -172,6 +193,18 @@ async function createTicket(interaction) {
     });
 
     await interaction.reply({ content: `¡Ticket creado! ${channel}`, ephemeral: true });
+
+    // LOG: ticket creado
+    await sendTicketLog(guild, {
+      title: '🎫 Ticket creado',
+      color: 0x57F287,
+      user: member.user,
+      fields: [
+        { name: 'Usuario', value: `${member} (\`${member.id}\`)`, inline: true },
+        { name: 'Categoría', value: value, inline: true },
+        { name: 'Canal', value: `${channel}`, inline: true },
+      ],
+    });
   } catch (error) {
     console.error('Error creating ticket:', error);
     if (interaction.replied || interaction.deferred) {
@@ -188,8 +221,21 @@ async function claimTicket(interaction) {
     await interaction.reply({ content: 'No tienes permiso para reclamar este ticket.', ephemeral: true });
     return true;
   }
+
   await interaction.update({ components: [buildActionView(interaction.user.displayName)] });
   await interaction.channel.send(`El ticket ha sido reclamado por ${interaction.user}.`);
+
+  // LOG: ticket reclamado
+  await sendTicketLog(interaction.guild, {
+    title: '🙋 Ticket reclamado',
+    color: 0x5865F2,
+    user: interaction.user,
+    fields: [
+      { name: 'Staff', value: `${interaction.user} (\`${interaction.user.id}\`)`, inline: true },
+      { name: 'Canal', value: `${interaction.channel}`, inline: true },
+    ],
+  });
+
   return true;
 }
 
@@ -200,6 +246,18 @@ async function closeTicket(interaction) {
     await interaction.reply({ content: 'Solo el personal o quien creó el ticket puede cerrarlo.', ephemeral: true });
     return true;
   }
+
+  // LOG: ticket cerrado (antes de borrar el canal)
+  await sendTicketLog(interaction.guild, {
+    title: '🔒 Ticket cerrado',
+    color: 0xED4245,
+    user: interaction.user,
+    fields: [
+      { name: 'Cerrado por', value: `${interaction.user} (\`${interaction.user.id}\`)`, inline: true },
+      { name: 'Canal', value: `\`${interaction.channel.name}\``, inline: true },
+    ],
+  });
+
   await interaction.reply({ content: 'Cerrando el ticket en 5 segundos...' });
   setTimeout(() => {
     interaction.channel.delete().catch(() => {});
