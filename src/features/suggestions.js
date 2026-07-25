@@ -22,8 +22,8 @@ const DOWN_ID = 'sug_downvote';
 
 // Defaults
 const DEFAULT_BANNER =
-  'https://media.discordapp.net/attachments/1243043552972247110/1530369578008444949/generated.gif';
-const DEFAULT_COLOR = 0x9B59B6; // morado (cámbialo si quieres)
+  'https://i.imgur.com/CHwoiQX.gif';
+const DEFAULT_COLOR = 0x9B59B6;
 const UP_EMOJI = { id: '1530371857583177778', name: 'up' };
 const DOWN_EMOJI = { id: '1530372010822074483', name: 'down' };
 
@@ -132,9 +132,7 @@ function parseEmoji(input) {
   return raw;
 }
 
-function buildVoteRow(guildId, upCount = 0, downCount = 0) {
-  const { up, down } = getGuildEmojis(guildId);
-
+function buildVoteRow(guildId, upCount = 0, downCount = 0, forceUnicode = false) {
   const upBtn = new ButtonBuilder()
     .setCustomId(UP_ID)
     .setLabel(String(upCount))
@@ -145,9 +143,18 @@ function buildVoteRow(guildId, upCount = 0, downCount = 0) {
     .setLabel(String(downCount))
     .setStyle(ButtonStyle.Secondary);
 
+  if (forceUnicode) {
+    upBtn.setEmoji('👍');
+    downBtn.setEmoji('👎');
+    return new ActionRowBuilder().addComponents(upBtn, downBtn);
+  }
+
+  const { up, down } = getGuildEmojis(guildId);
+
   try {
     const upEmoji = parseEmoji(up);
     if (upEmoji) upBtn.setEmoji(upEmoji);
+    else upBtn.setEmoji('👍');
   } catch {
     upBtn.setEmoji('👍');
   }
@@ -155,6 +162,7 @@ function buildVoteRow(guildId, upCount = 0, downCount = 0) {
   try {
     const downEmoji = parseEmoji(down);
     if (downEmoji) downBtn.setEmoji(downEmoji);
+    else downBtn.setEmoji('👎');
   } catch {
     downBtn.setEmoji('👎');
   }
@@ -181,7 +189,6 @@ export function buildPanelEmbed(guildId) {
 }
 
 export function buildPanelButton() {
-  // Primary = morado/azul Discord (como Verificarme)
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(OPEN_MODAL_ID)
@@ -237,49 +244,88 @@ export async function handleSuggestionInteraction(interaction) {
             .setMaxLength(1500)
         )
       );
+
     await interaction.showModal(modal);
     return true;
   }
 
   if (interaction.isModalSubmit() && interaction.customId === MODAL_ID) {
+    await interaction.deferReply({ ephemeral: true });
+
     const title = interaction.fields.getTextInputValue('sug_title').trim();
     const details = interaction.fields.getTextInputValue('sug_details').trim();
-
-    // Siempre al final del canal
     const embed = buildSuggestionEmbed(interaction.guildId, interaction.user, title, details);
-    const row = buildVoteRow(interaction.guildId, 0, 0);
 
-    const msg = await interaction.channel.send({
-      embeds: [embed],
-      components: [row],
-    });
+    try {
+      const row = buildVoteRow(interaction.guildId, 0, 0, false);
+      const msg = await interaction.channel.send({
+        embeds: [embed],
+        components: [row],
+      });
 
-    saveVotes(msg.id, {
-      up: [],
-      down: [],
-      authorId: interaction.user.id,
-      title,
-      details,
-    });
+      saveVotes(msg.id, {
+        up: [],
+        down: [],
+        authorId: interaction.user.id,
+        title,
+        details,
+      });
 
-    await interaction.reply({
-      content: '✅ Tu sugerencia fue publicada.',
-      ephemeral: true,
-    });
+      await interaction.editReply({ content: '✅ Tu sugerencia fue publicada.' });
+    } catch (err) {
+      console.error('Error publicando sugerencia (custom emoji):', err);
+
+      try {
+        const row = buildVoteRow(interaction.guildId, 0, 0, true);
+        const msg = await interaction.channel.send({
+          embeds: [embed],
+          components: [row],
+        });
+
+        saveVotes(msg.id, {
+          up: [],
+          down: [],
+          authorId: interaction.user.id,
+          title,
+          details,
+        });
+
+        await interaction.editReply({
+          content: '✅ Sugerencia publicada (emojis custom no disponibles, usé 👍👎).',
+        });
+      } catch (err2) {
+        console.error('Error fallback sugerencia:', err2);
+        await interaction.editReply({
+          content: `❌ No se pudo publicar. Error: ${err2.message || 'Discord API'}`,
+        });
+      }
+    }
+
     return true;
   }
 
   if (interaction.isButton() && (interaction.customId === UP_ID || interaction.customId === DOWN_ID)) {
     const votes = getVotes(interaction.message.id);
     const userId = interaction.user.id;
+
     votes.up = (votes.up || []).filter((id) => id !== userId);
     votes.down = (votes.down || []).filter((id) => id !== userId);
+
     if (interaction.customId === UP_ID) votes.up.push(userId);
     else votes.down.push(userId);
+
     saveVotes(interaction.message.id, votes);
-    await interaction.update({
-      components: [buildVoteRow(interaction.guildId, votes.up.length, votes.down.length)],
-    });
+
+    try {
+      await interaction.update({
+        components: [buildVoteRow(interaction.guildId, votes.up.length, votes.down.length, false)],
+      });
+    } catch {
+      await interaction.update({
+        components: [buildVoteRow(interaction.guildId, votes.up.length, votes.down.length, true)],
+      });
+    }
+
     return true;
   }
 
