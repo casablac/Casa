@@ -22,13 +22,12 @@ const DOWN_ID = 'sug_downvote';
 
 // ====== PERSONALIZA AQUÍ ======
 const PANEL_BANNER =
-  'https://cdn.discordapp.com/attachments/1243043552972247110/1530369578008444949/generated.gif?ex=6a65533c&is=6a6401bc&hm=fd06cc615111feb050a31aa31811b5ad0ed5339e7c682fe728936f25cfbf841d&';
+  'https://media.discordapp.net/attachments/1243043552972247110/1530369578008444949/generated.gif?ex=6a65533c&is=6a6401bc&hm=fd06cc615111feb050a31aa31811b5ad0ed5339e7c682fe728936f25cfbf841d&=&width=400&height=99';
 const PANEL_FOOTER_IMAGE =
-  'https://cdn.discordapp.com/attachments/1522044644140126290/1530370815919394866/image__2_-removebg-preview.png?ex=6a655463&is=6a6402e3&hm=cd74e7f0b1ede85cd85d49eac201a662b9e34cb64d12801d75885585ea189621&';
-
-const UP_EMOJI = '👍';   // cámbialo por el emoji que quieras
-const DOWN_EMOJI = '👎'; // cámbialo por el emoji que quieras
-const COLOR = 0xF5A623; // naranja como en la captura
+  'https://media.discordapp.net/attachments/1522044644140126290/1530370815919394866/image__2_-removebg-preview.png?ex=6a655463&is=6a6402e3&hm=cd74e7f0b1ede85cd85d49eac201a662b9e34cb64d12801d75885585ea189621&=&format=webp&quality=lossless';
+const UP_EMOJI = '👍';
+const DOWN_EMOJI = '👎';
+const COLOR = 0xF5A623;
 // ==============================
 
 function ensureConfig() {
@@ -96,20 +95,54 @@ function saveVotes(messageId, votes) {
   writeConfig(config);
 }
 
+/** Acepta: 👍 | <:name:id> | <a:name:id> | solo id numérico */
+function parseEmoji(input) {
+  if (!input) return undefined;
+  const raw = String(input).trim();
+
+  // Unicode (👍, 🔥, etc.)
+  if (!raw.includes('<') && !/^\d+$/.test(raw)) {
+    return raw;
+  }
+
+  // <:name:123456> o <a:name:123456>
+  const match = raw.match(/<?(a)?:?(\w+):(\d+)>?/);
+  if (match) {
+    return {
+      animated: Boolean(match[1]),
+      name: match[2],
+      id: match[3],
+    };
+  }
+
+  // Solo ID
+  if (/^\d+$/.test(raw)) {
+    return { id: raw };
+  }
+
+  return raw;
+}
+
 function buildVoteRow(guildId, upCount = 0, downCount = 0) {
   const { up, down } = getGuildEmojis(guildId);
-  return new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(UP_ID)
-      .setLabel(String(upCount))
-      .setEmoji(up)
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId(DOWN_ID)
-      .setLabel(String(downCount))
-      .setEmoji(down)
-      .setStyle(ButtonStyle.Secondary)
-  );
+
+  const upBtn = new ButtonBuilder()
+    .setCustomId(UP_ID)
+    .setLabel(String(upCount))
+    .setStyle(ButtonStyle.Secondary);
+
+  const downBtn = new ButtonBuilder()
+    .setCustomId(DOWN_ID)
+    .setLabel(String(downCount))
+    .setStyle(ButtonStyle.Secondary);
+
+  const upEmoji = parseEmoji(up);
+  const downEmoji = parseEmoji(down);
+
+  if (upEmoji) upBtn.setEmoji(upEmoji);
+  if (downEmoji) downBtn.setEmoji(downEmoji);
+
+  return new ActionRowBuilder().addComponents(upBtn, downBtn);
 }
 
 export function buildPanelEmbed() {
