@@ -20,6 +20,10 @@ import { isCollectorManagedComponent } from '../utils/collectorComponents.js';
 import { ResponseCoordinator } from '../utils/responseCoordinator.js';
 import { enforceDefaultCommandPermissions } from '../utils/permissionGuard.js';
 import { handleWisxoTicketInteraction, isWisxoTicketInteraction } from '../features/wisxoTicket.js';
+import {
+  handleSuggestionInteraction,
+  isSuggestionInteraction,
+} from '../features/suggestions.js';
 
 const COMMAND_ERROR_SUBTYPES = {
   warn: 'warn_failed',
@@ -53,7 +57,6 @@ export default {
     const interactionTraceContext = createInteractionTraceContext(interaction);
     interaction.traceContext = interactionTraceContext;
     interaction.traceId = interactionTraceContext.traceId;
-
     return runWithTraceContext(interactionTraceContext, async () => {
       try {
         InteractionHelper.patchInteractionResponses(interaction);
@@ -62,6 +65,12 @@ export default {
         // Wisxo Ticket system
         if (isWisxoTicketInteraction(interaction)) {
           await handleWisxoTicketInteraction(interaction);
+          return;
+        }
+
+        // Sistema de sugerencias (panel + votos)
+        if (isSuggestionInteraction(interaction)) {
+          await handleSuggestionInteraction(interaction);
           return;
         }
 
@@ -74,14 +83,11 @@ export default {
               userId: interaction.user?.id,
               command: interaction.commandName
             });
-
             validateChatInputPayloadOrThrow(interaction, withTraceContext({
               type: 'command_input_validation',
               commandName: interaction.commandName
             }, interactionTraceContext));
-
             const command = client.commands.get(interaction.commandName);
-
             if (!command) {
               throw createError(
                 `No command matching ${interaction.commandName} was found.`,
@@ -90,7 +96,6 @@ export default {
                 withTraceContext({ commandName: interaction.commandName }, interactionTraceContext)
               );
             }
-
             if (isMaintenanceMode() && !isBotOwner(interaction.user.id)) {
               throw createError(
                 'Bot is in maintenance mode',
@@ -99,7 +104,6 @@ export default {
                 withTraceContext({ commandName: interaction.commandName }, interactionTraceContext)
               );
             }
-
             if (!isCommandCategoryEnabled(command.category)) {
               throw createError(
                 `Feature disabled for category ${command.category}`,
@@ -108,12 +112,10 @@ export default {
                 withTraceContext({ commandName: interaction.commandName, category: command.category }, interactionTraceContext)
               );
             }
-
             const defaultCooldownSec = Number(botConfig.commands?.defaultCooldown) || 0;
             if (defaultCooldownSec > 0 && !isBotOwner(interaction.user.id)) {
               const cooldownKey = `${interaction.user.id}:${interaction.commandName}`;
               const expiresAt = client.cooldowns.get(cooldownKey);
-
               if (expiresAt && Date.now() < expiresAt) {
                 const remainingSec = Math.ceil((expiresAt - Date.now()) / 1000);
                 throw createError(
@@ -123,10 +125,8 @@ export default {
                   withTraceContext({ commandName: interaction.commandName, remainingSec }, interactionTraceContext)
                 );
               }
-
               client.cooldowns.set(cooldownKey, Date.now() + defaultCooldownSec * 1000);
             }
-
             const abuseProtection = await enforceAbuseProtection(interaction, command, interaction.commandName);
             if (!abuseProtection.allowed) {
               const formattedCooldown = formatCooldownDuration(abuseProtection.remainingMs);
@@ -144,7 +144,6 @@ export default {
                 }, interactionTraceContext)
               );
             }
-
             let guildConfig = null;
             if (interaction.guild) {
               guildConfig = await getGuildConfig(client, interaction.guild.id, interactionTraceContext);
@@ -158,7 +157,6 @@ export default {
                 );
               }
             }
-
             const permissionAllowed = await enforceDefaultCommandPermissions(interaction, command, {
               source: 'interactionCreate',
               guildConfig,
@@ -166,7 +164,6 @@ export default {
             if (!permissionAllowed) {
               return;
             }
-
             await command.execute(interaction, guildConfig, client);
           } catch (error) {
             await handleInteractionError(interaction, error, withTraceContext({
@@ -190,9 +187,7 @@ export default {
             }
             return;
           }
-
           const focusedOption = interaction.options.getFocused(true);
-
           if (interaction.commandName === 'apply' && focusedOption.name === 'application') {
             try {
               const { getApplicationRoles } = await import('../utils/database.js');
@@ -202,7 +197,6 @@ export default {
                 role.enabled !== false &&
                 role.name.toLowerCase().startsWith(roleName?.toLowerCase() || '')
               );
-
               await interaction.respond(
                 filtered.slice(0, 25).map(role => ({
                   name: `${role.name}${role.enabled === false ? ' (disabled)' : ''}`,
@@ -225,7 +219,6 @@ export default {
               const filtered = roles.filter(role =>
                 role.name.toLowerCase().startsWith(appName?.toLowerCase() || '')
               );
-
               await interaction.respond(
                 filtered.slice(0, 25).map(role => ({
                   name: `${role.name}${role.enabled === false ? ' (disabled)' : ''}`,
@@ -245,26 +238,21 @@ export default {
               const { getAllReactionRoleMessages, deleteReactionRoleMessage } = await import('../services/reactionRoleService.js');
               const guildId = interaction.guildId;
               const guild = interaction.guild;
-
               let panels = await getAllReactionRoleMessages(client, guildId);
-
               if (!panels || panels.length === 0) {
                 await interaction.respond([]);
                 return;
               }
-
               const validPanels = [];
               for (const panel of panels) {
                 if (!panel.messageId || !panel.channelId) {
                   continue;
                 }
-
                 const channel = guild.channels.cache.get(panel.channelId);
                 if (!channel) {
                   await deleteReactionRoleMessage(client, guildId, panel.messageId).catch(() => {});
                   continue;
                 }
-
                 const msg = await channel.messages.fetch(panel.messageId).catch(() => null);
                 if (!msg) {
                   await deleteReactionRoleMessage(client, guildId, panel.messageId).catch(() => {});
@@ -272,24 +260,19 @@ export default {
                 }
                 validPanels.push(panel);
               }
-
               if (validPanels.length === 0) {
                 await interaction.respond([]);
                 return;
               }
-
               const choices = await Promise.all(
                 validPanels.slice(0, 25).map(async panel => {
                   try {
                     const channel = guild.channels.cache.get(panel.channelId);
                     if (!channel) return null;
-
                     const msg = await channel.messages.fetch(panel.messageId).catch(() => null);
                     if (!msg) return null;
-
                     const title = msg?.embeds?.[0]?.title ?? 'Untitled Panel';
                     const channelName = channel?.name ?? 'unknown';
-
                     return {
                       name: `${title} (${channelName})`.substring(0, 100),
                       value: panel.messageId
@@ -299,7 +282,6 @@ export default {
                   }
                 })
               );
-
               const validChoices = choices.filter(c => c !== null);
               await interaction.respond(validChoices);
             } catch (error) {
@@ -337,7 +319,6 @@ export default {
             }
             return;
           }
-
           const [customId, ...args] = interaction.customId.split(':');
           const button = client.buttons.get(customId);
           if (!button) {
@@ -395,7 +376,6 @@ export default {
             }
             return;
           }
-
           if (
             interaction.customId.startsWith('app_review_')
             || interaction.customId.startsWith('jtc_')
@@ -409,7 +389,6 @@ export default {
             });
             return;
           }
-
           const [customId, ...args] = interaction.customId.split(':');
           const modal = client.modals.get(customId);
           if (!modal) {
