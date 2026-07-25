@@ -20,17 +20,12 @@ const MODAL_ID = 'sug_submit_modal';
 const UP_ID = 'sug_upvote';
 const DOWN_ID = 'sug_downvote';
 
-// ====== PERSONALIZA AQUÍ ======
-const PANEL_BANNER =
-  'https://media.discordapp.net/attachments/1243043552972247110/1530369578008444949/generated.gif?ex=6a65533c&is=6a6401bc&hm=fd06cc615111feb050a31aa31811b5ad0ed5339e7c682fe728936f25cfbf841d&=&width=400&height=99';
-const PANEL_FOOTER_IMAGE =
-  'https://media.discordapp.net/attachments/1522044644140126290/1530370815919394866/image__2_-removebg-preview.png?ex=6a655463&is=6a6402e3&hm=cd74e7f0b1ede85cd85d49eac201a662b9e34cb64d12801d75885585ea189621&=&format=webp&quality=lossless';
-
+// Defaults
+const DEFAULT_BANNER =
+  'https://media.discordapp.net/attachments/1243043552972247110/1530369578008444949/generated.gif';
+const DEFAULT_COLOR = 0x9B59B6; // morado (cámbialo si quieres)
 const UP_EMOJI = { id: '1530371857583177778', name: 'up' };
 const DOWN_EMOJI = { id: '1530372010822074483', name: 'down' };
-
-const COLOR = 0xf5a623;
-// ==============================
 
 function ensureConfig() {
   const dir = path.dirname(CONFIG_PATH);
@@ -38,7 +33,7 @@ function ensureConfig() {
   if (!fs.existsSync(CONFIG_PATH)) {
     fs.writeFileSync(
       CONFIG_PATH,
-      JSON.stringify({ channels: {}, votes: {}, emojis: {} }, null, 2),
+      JSON.stringify({ channels: {}, votes: {}, emojis: {}, settings: {} }, null, 2),
       'utf8'
     );
   }
@@ -49,7 +44,7 @@ function readConfig() {
     ensureConfig();
     return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8') || '{}');
   } catch {
-    return { channels: {}, votes: {}, emojis: {} };
+    return { channels: {}, votes: {}, emojis: {}, settings: {} };
   }
 }
 
@@ -66,6 +61,27 @@ export async function setSuggestionChannel(guildId, channelId) {
   const config = readConfig();
   if (!config.channels) config.channels = {};
   config.channels[guildId] = channelId;
+  writeConfig(config);
+}
+
+function getSettings(guildId) {
+  const config = readConfig();
+  const s = config.settings?.[guildId] || {};
+  return {
+    color: s.color ?? DEFAULT_COLOR,
+    banner: s.banner || DEFAULT_BANNER,
+  };
+}
+
+export async function setSuggestionSettings(guildId, { color, banner }) {
+  const config = readConfig();
+  if (!config.settings) config.settings = {};
+  const prev = config.settings[guildId] || {};
+  config.settings[guildId] = {
+    ...prev,
+    ...(color !== undefined ? { color } : {}),
+    ...(banner !== undefined ? { banner } : {}),
+  };
   writeConfig(config);
 }
 
@@ -99,7 +115,6 @@ function saveVotes(messageId, votes) {
 
 function parseEmoji(input) {
   if (!input) return undefined;
-
   if (typeof input === 'object' && input.id) {
     return {
       id: String(input.id),
@@ -107,60 +122,37 @@ function parseEmoji(input) {
       animated: Boolean(input.animated),
     };
   }
-
   const raw = String(input).trim();
-
-  if (!raw.includes('<') && !raw.includes(':') && !/^\d+$/.test(raw)) {
-    return raw;
-  }
-
+  if (!raw.includes('<') && !raw.includes(':') && !/^\d+$/.test(raw)) return raw;
   const full = raw.match(/<(a)?:([a-zA-Z0-9_]+):(\d+)>/);
-  if (full) {
-    return {
-      animated: Boolean(full[1]),
-      name: full[2],
-      id: full[3],
-    };
-  }
-
+  if (full) return { animated: Boolean(full[1]), name: full[2], id: full[3] };
   const short = raw.match(/^([a-zA-Z0-9_]+):(\d+)$/);
-  if (short) {
-    return { name: short[1], id: short[2] };
-  }
-
-  if (/^\d+$/.test(raw)) {
-    return { id: raw, name: 'emoji' };
-  }
-
+  if (short) return { name: short[1], id: short[2] };
+  if (/^\d+$/.test(raw)) return { id: raw, name: 'emoji' };
   return raw;
 }
 
 function buildVoteRow(guildId, upCount = 0, downCount = 0) {
   const { up, down } = getGuildEmojis(guildId);
-
   const upBtn = new ButtonBuilder()
     .setCustomId(UP_ID)
     .setLabel(String(upCount))
     .setStyle(ButtonStyle.Secondary);
-
   const downBtn = new ButtonBuilder()
     .setCustomId(DOWN_ID)
     .setLabel(String(downCount))
     .setStyle(ButtonStyle.Secondary);
-
   const upEmoji = parseEmoji(up);
   const downEmoji = parseEmoji(down);
-
   if (upEmoji) upBtn.setEmoji(upEmoji);
   if (downEmoji) downBtn.setEmoji(downEmoji);
-
   return new ActionRowBuilder().addComponents(upBtn, downBtn);
 }
 
-export function buildPanelEmbed() {
-  return new EmbedBuilder()
-    .setColor(COLOR)
-    .setImage(PANEL_BANNER)
+export function buildPanelEmbed(guildId) {
+  const { color, banner } = getSettings(guildId);
+  const embed = new EmbedBuilder()
+    .setColor(color)
     .setTitle('💡 Panel de Sugerencias')
     .setDescription(
       '**¿Cómo funciona?**\n' +
@@ -170,9 +162,13 @@ export function buildPanelEmbed() {
         '> Las sugerencias ayudan a mejorar el servidor y a tomar decisiones basadas en la opinión de todos.'
     )
     .setFooter({ text: 'Envenenado RP • Sugerencias' });
+
+  if (banner) embed.setImage(banner);
+  return embed;
 }
 
 export function buildPanelButton() {
+  // Primary = morado/azul Discord (como Verificarme)
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(OPEN_MODAL_ID)
@@ -184,14 +180,15 @@ export function buildPanelButton() {
 
 export async function sendSuggestionPanel(channel) {
   await channel.send({
-    embeds: [buildPanelEmbed()],
+    embeds: [buildPanelEmbed(channel.guildId)],
     components: [buildPanelButton()],
   });
 }
 
-function buildSuggestionEmbed(user, title, details) {
+function buildSuggestionEmbed(guildId, user, title, details) {
+  const { color } = getSettings(guildId);
   return new EmbedBuilder()
-    .setColor(COLOR)
+    .setColor(color)
     .setTitle(`💡 ${title}`)
     .setDescription(details)
     .addFields({
@@ -227,7 +224,6 @@ export async function handleSuggestionInteraction(interaction) {
             .setMaxLength(1500)
         )
       );
-
     await interaction.showModal(modal);
     return true;
   }
@@ -236,7 +232,8 @@ export async function handleSuggestionInteraction(interaction) {
     const title = interaction.fields.getTextInputValue('sug_title').trim();
     const details = interaction.fields.getTextInputValue('sug_details').trim();
 
-    const embed = buildSuggestionEmbed(interaction.user, title, details);
+    // Siempre al final del canal
+    const embed = buildSuggestionEmbed(interaction.guildId, interaction.user, title, details);
     const row = buildVoteRow(interaction.guildId, 0, 0);
 
     const msg = await interaction.channel.send({
@@ -262,15 +259,11 @@ export async function handleSuggestionInteraction(interaction) {
   if (interaction.isButton() && (interaction.customId === UP_ID || interaction.customId === DOWN_ID)) {
     const votes = getVotes(interaction.message.id);
     const userId = interaction.user.id;
-
     votes.up = (votes.up || []).filter((id) => id !== userId);
     votes.down = (votes.down || []).filter((id) => id !== userId);
-
     if (interaction.customId === UP_ID) votes.up.push(userId);
     else votes.down.push(userId);
-
     saveVotes(interaction.message.id, votes);
-
     await interaction.update({
       components: [buildVoteRow(interaction.guildId, votes.up.length, votes.down.length)],
     });
@@ -288,8 +281,6 @@ export function isSuggestionInteraction(interaction) {
       interaction.customId === DOWN_ID
     );
   }
-  if (interaction.isModalSubmit()) {
-    return interaction.customId === MODAL_ID;
-  }
+  if (interaction.isModalSubmit()) return interaction.customId === MODAL_ID;
   return false;
 }
