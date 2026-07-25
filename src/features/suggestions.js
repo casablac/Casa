@@ -3,7 +3,9 @@ import {
   ButtonBuilder,
   ButtonStyle,
   EmbedBuilder,
-  PermissionFlagsBits,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
 } from 'discord.js';
 import fs from 'fs';
 import path from 'path';
@@ -13,34 +15,50 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const CONFIG_PATH = path.join(__dirname, '../../data/suggestions.json');
 
+const OPEN_MODAL_ID = 'sug_open_modal';
+const MODAL_ID = 'sug_submit_modal';
 const UP_ID = 'sug_upvote';
 const DOWN_ID = 'sug_downvote';
 
-function ensureConfigFile() {
+// ====== PERSONALIZA AQUÍ ======
+const PANEL_BANNER =
+  'https://cdn.discordapp.com/attachments/1243043552972247110/1530369578008444949/generated.gif?ex=6a65533c&is=6a6401bc&hm=fd06cc615111feb050a31aa31811b5ad0ed5339e7c682fe728936f25cfbf841d&';
+const PANEL_FOOTER_IMAGE =
+  'https://cdn.discordapp.com/attachments/1522044644140126290/1530370815919394866/image__2_-removebg-preview.png?ex=6a655463&is=6a6402e3&hm=cd74e7f0b1ede85cd85d49eac201a662b9e34cb64d12801d75885585ea189621&';
+
+const UP_EMOJI = '👍';   // cámbialo por el emoji que quieras
+const DOWN_EMOJI = '👎'; // cámbialo por el emoji que quieras
+const COLOR = 0xF5A623; // naranja como en la captura
+// ==============================
+
+function ensureConfig() {
   const dir = path.dirname(CONFIG_PATH);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   if (!fs.existsSync(CONFIG_PATH)) {
-    fs.writeFileSync(CONFIG_PATH, JSON.stringify({ channels: {}, votes: {} }, null, 2), 'utf8');
+    fs.writeFileSync(
+      CONFIG_PATH,
+      JSON.stringify({ channels: {}, votes: {}, emojis: {} }, null, 2),
+      'utf8'
+    );
   }
 }
 
 function readConfig() {
   try {
-    ensureConfigFile();
+    ensureConfig();
     return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8') || '{}');
   } catch {
-    return { channels: {}, votes: {} };
+    return { channels: {}, votes: {}, emojis: {} };
   }
 }
 
 function writeConfig(data) {
-  ensureConfigFile();
+  ensureConfig();
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(data, null, 2), 'utf8');
 }
 
 export function getSuggestionChannelId(guildId) {
-  const config = readConfig();
-  return config.channels?.[guildId] || null;
+  return readConfig().channels?.[guildId] || null;
 }
 
 export async function setSuggestionChannel(guildId, channelId) {
@@ -50,115 +68,188 @@ export async function setSuggestionChannel(guildId, channelId) {
   writeConfig(config);
 }
 
-function getVoteKey(messageId) {
-  return messageId;
+export function getGuildEmojis(guildId) {
+  const config = readConfig();
+  const e = config.emojis?.[guildId];
+  return {
+    up: e?.up || UP_EMOJI,
+    down: e?.down || DOWN_EMOJI,
+  };
+}
+
+export async function setGuildEmojis(guildId, up, down) {
+  const config = readConfig();
+  if (!config.emojis) config.emojis = {};
+  config.emojis[guildId] = { up, down };
+  writeConfig(config);
 }
 
 function getVotes(messageId) {
   const config = readConfig();
-  const key = getVoteKey(messageId);
-  return config.votes?.[key] || { up: [], down: [] };
+  return config.votes?.[messageId] || { up: [], down: [] };
 }
 
 function saveVotes(messageId, votes) {
   const config = readConfig();
   if (!config.votes) config.votes = {};
-  config.votes[getVoteKey(messageId)] = votes;
+  config.votes[messageId] = votes;
   writeConfig(config);
 }
 
-function buildVoteRow(upCount = 0, downCount = 0) {
+function buildVoteRow(guildId, upCount = 0, downCount = 0) {
+  const { up, down } = getGuildEmojis(guildId);
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(UP_ID)
-      .setLabel(`👍 ${upCount}`)
-      .setStyle(ButtonStyle.Success),
+      .setLabel(String(upCount))
+      .setEmoji(up)
+      .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId(DOWN_ID)
-      .setLabel(`👎 ${downCount}`)
-      .setStyle(ButtonStyle.Danger),
+      .setLabel(String(downCount))
+      .setEmoji(down)
+      .setStyle(ButtonStyle.Secondary)
   );
 }
 
-export async function postSuggestion(channel, user, text) {
-  const embed = new EmbedBuilder()
-    .setAuthor({
-      name: user.tag,
-      iconURL: user.displayAvatarURL({ size: 256 }),
-    })
-    .setTitle('💡 Nueva sugerencia')
-    .setDescription(text)
-    .setColor(0x9B59B6)
-    .addFields(
-      { name: 'Estado', value: '⏳ Pendiente', inline: true },
-      { name: 'Votos', value: '👍 0 | 👎 0', inline: true },
+export function buildPanelEmbed() {
+  return new EmbedBuilder()
+    .setColor(COLOR)
+    .setImage(PANEL_BANNER)
+    .setTitle('💡 Panel de Sugerencias')
+    .setDescription(
+      '**¿Cómo funciona?**\n' +
+        '• 1. Presiona el botón de abajo\n' +
+        '• 2. Ingresa el título y detalles de tu sugerencia\n' +
+        '• 3. Envíala y deja que la comunidad vote\n\n' +
+        '> Las sugerencias ayudan a mejorar el servidor y a tomar decisiones basadas en la opinión de todos.'
     )
-    .setFooter({ text: 'Envenenado RP • Sistema de Sugerencias' })
-    .setTimestamp();
+    .setFooter({ text: 'Envenenado RP • Sugerencias' });
+}
 
-  const msg = await channel.send({
-    embeds: [embed],
-    components: [buildVoteRow(0, 0)],
+export function buildPanelButton() {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(OPEN_MODAL_ID)
+      .setLabel('Publicar Sugerencia')
+      .setEmoji('📣')
+      .setStyle(ButtonStyle.Primary)
+  );
+}
+
+export async function sendSuggestionPanel(channel) {
+  await channel.send({
+    embeds: [buildPanelEmbed()],
+    components: [buildPanelButton()],
   });
+}
 
-  saveVotes(msg.id, { up: [], down: [], authorId: user.id, text });
-  return msg;
+function buildSuggestionEmbed(user, title, details) {
+  return new EmbedBuilder()
+    .setColor(COLOR)
+    .setTitle(`💡 ${title}`)
+    .setDescription(details)
+    .addFields({
+      name: '\u200b',
+      value: `» **Sugerido por:** ${user}`,
+    })
+    .setFooter({ text: 'Envenenado RP • Sugerencias' })
+    .setTimestamp();
 }
 
 export async function handleSuggestionInteraction(interaction) {
-  if (!interaction.isButton()) return false;
-  if (interaction.customId !== UP_ID && interaction.customId !== DOWN_ID) return false;
+  // Abrir modal
+  if (interaction.isButton() && interaction.customId === OPEN_MODAL_ID) {
+    const modal = new ModalBuilder()
+      .setCustomId(MODAL_ID)
+      .setTitle('Nueva sugerencia')
+      .addComponents(
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder()
+            .setCustomId('sug_title')
+            .setLabel('Título')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Ej: Armas VIP')
+            .setRequired(true)
+            .setMaxLength(100)
+        ),
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder()
+            .setCustomId('sug_details')
+            .setLabel('Detalles')
+            .setStyle(TextInputStyle.Paragraph)
+            .setPlaceholder('Explica tu sugerencia...')
+            .setRequired(true)
+            .setMaxLength(1500)
+        )
+      );
 
-  const message = interaction.message;
-  const votes = getVotes(message.id);
-  const userId = interaction.user.id;
-
-  // Un solo voto por persona (si cambia, se mueve al otro)
-  votes.up = votes.up.filter((id) => id !== userId);
-  votes.down = votes.down.filter((id) => id !== userId);
-
-  if (interaction.customId === UP_ID) {
-    votes.up.push(userId);
-  } else {
-    votes.down.push(userId);
+    await interaction.showModal(modal);
+    return true;
   }
 
-  saveVotes(message.id, votes);
+  // Enviar sugerencia (modal)
+  if (interaction.isModalSubmit() && interaction.customId === MODAL_ID) {
+    const title = interaction.fields.getTextInputValue('sug_title').trim();
+    const details = interaction.fields.getTextInputValue('sug_details').trim();
 
-  const upCount = votes.up.length;
-  const downCount = votes.down.length;
+    const embed = buildSuggestionEmbed(interaction.user, title, details);
+    const row = buildVoteRow(interaction.guildId, 0, 0);
 
-  const oldEmbed = message.embeds[0];
-  const embed = EmbedBuilder.from(oldEmbed)
-    .setFields(
-      ...(oldEmbed.fields || []).map((field) => {
-        if (field.name === 'Votos') {
-          return {
-            name: 'Votos',
-            value: `👍 ${upCount} | 👎 ${downCount}`,
-            inline: true,
-          };
-        }
-        return field;
-      }),
-    );
+    const msg = await interaction.channel.send({
+      embeds: [embed],
+      components: [row],
+    });
 
-  // Si no había campo Votos, lo agregamos
-  if (!(oldEmbed.fields || []).some((f) => f.name === 'Votos')) {
-    embed.addFields({ name: 'Votos', value: `👍 ${upCount} | 👎 ${downCount}`, inline: true });
+    saveVotes(msg.id, {
+      up: [],
+      down: [],
+      authorId: interaction.user.id,
+      title,
+      details,
+    });
+
+    await interaction.reply({
+      content: '✅ Tu sugerencia fue publicada.',
+      ephemeral: true,
+    });
+    return true;
   }
 
-  await interaction.update({
-    embeds: [embed],
-    components: [buildVoteRow(upCount, downCount)],
-  });
+  // Votos
+  if (interaction.isButton() && (interaction.customId === UP_ID || interaction.customId === DOWN_ID)) {
+    const votes = getVotes(interaction.message.id);
+    const userId = interaction.user.id;
 
-  return true;
+    votes.up = (votes.up || []).filter((id) => id !== userId);
+    votes.down = (votes.down || []).filter((id) => id !== userId);
+
+    if (interaction.customId === UP_ID) votes.up.push(userId);
+    else votes.down.push(userId);
+
+    saveVotes(interaction.message.id, votes);
+
+    await interaction.update({
+      components: [
+        buildVoteRow(interaction.guildId, votes.up.length, votes.down.length),
+      ],
+    });
+    return true;
+  }
+
+  return false;
 }
 
 export function isSuggestionInteraction(interaction) {
-  return (
-    interaction.isButton() &&
-    (interaction.customId === UP_ID || interaction.customId === DOWN_ID)
-  );
+  if (interaction.isButton()) {
+    return (
+      interaction.customId === OPEN_MODAL_ID ||
+      interaction.customId === UP_ID ||
+      interaction.customId === DOWN_ID
+    );
+  }
+  if (interaction.isModalSubmit()) {
+    return interaction.customId === MODAL_ID;
+  }
+  return false;
 }
