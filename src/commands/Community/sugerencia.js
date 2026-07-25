@@ -7,7 +7,6 @@ import {
 import {
   setSuggestionChannel,
   sendSuggestionPanel,
-  setSuggestionSettings,
   setGuildEmojis,
 } from '../../features/suggestions.js';
 
@@ -25,18 +24,6 @@ export default {
             .setDescription('Canal del panel')
             .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
             .setRequired(true)
-        )
-        .addStringOption((o) =>
-          o.setName('color').setDescription('Color hex ej: 9B59B6').setRequired(false)
-        )
-        .addStringOption((o) =>
-          o.setName('banner').setDescription('Imagen del PANEL[](https://...)').setRequired(false)
-        )
-        .addStringOption((o) =>
-          o
-            .setName('imagen_sugerencia')
-            .setDescription('Imagen de cada sugerencia[](https://...)')
-            .setRequired(false)
         )
     )
     .addSubcommand((sub) =>
@@ -68,39 +55,6 @@ export default {
 
     if (sub === 'setup') {
       const channel = interaction.options.getChannel('canal');
-      const colorText = interaction.options.getString('color');
-      const banner = interaction.options.getString('banner');
-      const suggestionImage = interaction.options.getString('imagen_sugerencia');
-      const patch = {};
-
-      if (colorText) {
-        const hex = colorText.replace('#', '');
-        if (!/^[0-9A-Fa-f]{6}$/.test(hex)) {
-          return interaction.reply({ content: 'Color inválido. Ej: `9B59B6`', ephemeral: true });
-        }
-        patch.color = parseInt(hex, 16);
-      }
-
-      if (banner) {
-        if (!banner.startsWith('http')) {
-          return interaction.reply({ content: 'banner debe ser https://...', ephemeral: true });
-        }
-        patch.banner = banner;
-      }
-
-      if (suggestionImage) {
-        if (!suggestionImage.startsWith('http')) {
-          return interaction.reply({
-            content: 'imagen_sugerencia debe ser https://...',
-            ephemeral: true,
-          });
-        }
-        patch.suggestionImage = suggestionImage;
-      }
-
-      if (Object.keys(patch).length) {
-        await setSuggestionSettings(interaction.guild.id, patch);
-      }
 
       await setSuggestionChannel(interaction.guild.id, channel.id);
       await sendSuggestionPanel(channel);
