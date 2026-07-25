@@ -25,9 +25,11 @@ const PANEL_BANNER =
   'https://media.discordapp.net/attachments/1243043552972247110/1530369578008444949/generated.gif?ex=6a65533c&is=6a6401bc&hm=fd06cc615111feb050a31aa31811b5ad0ed5339e7c682fe728936f25cfbf841d&=&width=400&height=99';
 const PANEL_FOOTER_IMAGE =
   'https://media.discordapp.net/attachments/1522044644140126290/1530370815919394866/image__2_-removebg-preview.png?ex=6a655463&is=6a6402e3&hm=cd74e7f0b1ede85cd85d49eac201a662b9e34cb64d12801d75885585ea189621&=&format=webp&quality=lossless';
-const UP_EMOJI = '👍';
-const DOWN_EMOJI = '👎';
-const COLOR = 0xF5A623;
+
+const UP_EMOJI = { id: '1530371857583177778', name: 'up' };
+const DOWN_EMOJI = { id: '1530372010822074483', name: 'down' };
+
+const COLOR = 0xf5a623;
 // ==============================
 
 function ensureConfig() {
@@ -95,29 +97,39 @@ function saveVotes(messageId, votes) {
   writeConfig(config);
 }
 
-/** Acepta: 👍 | <:name:id> | <a:name:id> | solo id numérico */
 function parseEmoji(input) {
   if (!input) return undefined;
-  const raw = String(input).trim();
 
-  // Unicode (👍, 🔥, etc.)
-  if (!raw.includes('<') && !/^\d+$/.test(raw)) {
-    return raw;
-  }
-
-  // <:name:123456> o <a:name:123456>
-  const match = raw.match(/<?(a)?:?(\w+):(\d+)>?/);
-  if (match) {
+  if (typeof input === 'object' && input.id) {
     return {
-      animated: Boolean(match[1]),
-      name: match[2],
-      id: match[3],
+      id: String(input.id),
+      name: input.name || 'emoji',
+      animated: Boolean(input.animated),
     };
   }
 
-  // Solo ID
+  const raw = String(input).trim();
+
+  if (!raw.includes('<') && !raw.includes(':') && !/^\d+$/.test(raw)) {
+    return raw;
+  }
+
+  const full = raw.match(/<(a)?:([a-zA-Z0-9_]+):(\d+)>/);
+  if (full) {
+    return {
+      animated: Boolean(full[1]),
+      name: full[2],
+      id: full[3],
+    };
+  }
+
+  const short = raw.match(/^([a-zA-Z0-9_]+):(\d+)$/);
+  if (short) {
+    return { name: short[1], id: short[2] };
+  }
+
   if (/^\d+$/.test(raw)) {
-    return { id: raw };
+    return { id: raw, name: 'emoji' };
   }
 
   return raw;
@@ -191,7 +203,6 @@ function buildSuggestionEmbed(user, title, details) {
 }
 
 export async function handleSuggestionInteraction(interaction) {
-  // Abrir modal
   if (interaction.isButton() && interaction.customId === OPEN_MODAL_ID) {
     const modal = new ModalBuilder()
       .setCustomId(MODAL_ID)
@@ -221,7 +232,6 @@ export async function handleSuggestionInteraction(interaction) {
     return true;
   }
 
-  // Enviar sugerencia (modal)
   if (interaction.isModalSubmit() && interaction.customId === MODAL_ID) {
     const title = interaction.fields.getTextInputValue('sug_title').trim();
     const details = interaction.fields.getTextInputValue('sug_details').trim();
@@ -249,7 +259,6 @@ export async function handleSuggestionInteraction(interaction) {
     return true;
   }
 
-  // Votos
   if (interaction.isButton() && (interaction.customId === UP_ID || interaction.customId === DOWN_ID)) {
     const votes = getVotes(interaction.message.id);
     const userId = interaction.user.id;
@@ -263,9 +272,7 @@ export async function handleSuggestionInteraction(interaction) {
     saveVotes(interaction.message.id, votes);
 
     await interaction.update({
-      components: [
-        buildVoteRow(interaction.guildId, votes.up.length, votes.down.length),
-      ],
+      components: [buildVoteRow(interaction.guildId, votes.up.length, votes.down.length)],
     });
     return true;
   }
