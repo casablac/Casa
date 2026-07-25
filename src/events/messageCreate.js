@@ -18,6 +18,7 @@ import {
   isValidCountingMessage,
   recordCorrectCount,
 } from '../services/countingGameService.js';
+import { handleSuggestionMessage } from '../features/suggestions.js';
 
 const MESSAGE_XP_RATE_LIMIT_ATTEMPTS = 12;
 const MESSAGE_XP_RATE_LIMIT_WINDOW_MS = 10000;
@@ -29,6 +30,11 @@ export default {
       if (message.author.bot || !message.guild) return;
 
       logger.debug(`Message received from ${message.author.tag}: ${message.content}`);
+
+      // === Sugerencias: mensaje en el canal → embed + votos ===
+      const suggestionProcessed = await handleSuggestionMessage(message);
+      if (suggestionProcessed) return;
+      // =======================================================
 
       // === Sistema de Whitelist (WL) ===
       const wlProcessed = await handleWhitelistRequest(message, client);
@@ -60,7 +66,6 @@ async function handleWhitelistRequest(message, client) {
     const content = message.content.trim().toLowerCase();
     if (!content.startsWith('wl')) return false;
 
-    // Borra el mensaje original para que quede limpio
     await message.delete().catch(() => {});
 
     const solicitudText = message.content.trim().length > 2
@@ -111,7 +116,7 @@ async function handlePrefixCommand(message, client) {
     const guildConfig = await getGuildConfig(client, message.guild.id);
     const prefix = guildConfig?.prefix || getCommandPrefix();
     const parsed = parsePrefixCommand(message.content, prefix);
-   
+
     if (!parsed) {
       return;
     }
@@ -125,11 +130,9 @@ async function handlePrefixCommand(message, client) {
     }
 
     logger.info(`Prefix command detected: ${commandName}, args: ${args.join(', ')}`);
-
     const resolvedCommandName = resolveCommandAlias(commandName);
     logger.info(`Resolved command name: ${resolvedCommandName}`);
     const command = client.commands.get(resolvedCommandName);
-
     if (!command) {
       logger.warn(`Command not found: ${resolvedCommandName}`);
       return;
@@ -184,13 +187,11 @@ async function handlePrefixCommand(message, client) {
       guildId: message.guild.id,
       user: message.author,
     };
-
     const abuseProtection = await enforceAbuseProtection(
       mockInteractionForProtection,
       command,
       resolvedCommandName,
     );
-
     if (!abuseProtection.allowed) {
       const formattedCooldown = formatCooldownDuration(abuseProtection.remainingMs);
       const embed = createEmbed({
@@ -203,7 +204,7 @@ async function handlePrefixCommand(message, client) {
     }
 
     logger.info(`Executing prefix command: ${prefix}${commandName} (resolved to ${resolvedCommandName}) by ${message.author.tag}`);
-   
+
     await executePrefixCommand(command, message, args, client, prefix, guildConfig);
   } catch (error) {
     logger.error('Error handling prefix command:', error);
@@ -213,7 +214,6 @@ async function handlePrefixCommand(message, client) {
 async function handleCountingGame(message, client) {
   try {
     const config = await getCountingGameConfig(client, message.guild.id);
-
     if (!config.enabled || !config.channelId || message.channel.id !== config.channelId) {
       return false;
     }
@@ -224,20 +224,16 @@ async function handleCountingGame(message, client) {
 
     if (invalidAttempt) {
       await message.delete().catch(() => {});
-
       await saveCountingGameConfig(client, message.guild.id, {
         ...config,
         nextNumber: 1,
         lastUserId: null,
         currentStreak: 0,
       });
-
       const failureMessage = await message.channel.send(`❌ Count broken by <@${message.author.id}>. The sequence has been reset to **1**.`);
-
       setTimeout(() => {
         failureMessage.delete().catch(() => {});
       }, 10000);
-
       return true;
     }
 
@@ -258,7 +254,7 @@ async function handleLeveling(message, client) {
     }
 
     const levelingConfig = await getLevelingConfig(client, message.guild.id);
-   
+
     if (!levelingConfig?.enabled) {
       return;
     }
@@ -271,7 +267,6 @@ async function handleLeveling(message, client) {
       const member = await message.guild.members.fetch(message.author.id).catch(() => {
         return null;
       });
-
       if (member && member.roles.cache.some(role => levelingConfig.ignoredRoles.includes(role.id))) {
         return;
       }
@@ -289,7 +284,6 @@ async function handleLeveling(message, client) {
     const cooldownTime = levelingConfig.xpCooldown || 60;
     const now = Date.now();
     const timeSinceLastMessage = now - (userData.lastMessage || 0);
-
     if (timeSinceLastMessage < cooldownTime * 1000) {
       return;
     }
@@ -306,7 +300,6 @@ async function handleLeveling(message, client) {
     }
 
     const result = await addXp(client, message.guild, message.member, finalXP);
-
     if (result?.leveledUp) {
       logger.info(
         `${message.author.tag} leveled up to level ${result.level} in ${message.guild.name}`
