@@ -38,10 +38,7 @@ export default {
 
   async execute(interaction) {
     if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
-      return interaction.reply({
-        content: 'Solo administradores.',
-        ephemeral: true,
-      });
+      return interaction.reply({ content: 'Solo administradores.', ephemeral: true });
     }
 
     const channel = interaction.options.getChannel('canal');
@@ -54,7 +51,6 @@ export default {
 
     await setSuggestionChannel(interaction.guild.id, channel.id);
 
-    // Panel opcional (si quieres solo mensajes, puedes comentar esta línea)
     try {
       await sendSuggestionPanel(channel);
     } catch (e) {
@@ -68,9 +64,7 @@ export default {
           .setTitle('Sugerencias listas')
           .setDescription(
             `Canal: ${channel}\n` +
-              (up && down
-                ? `Emojis: ${up} / ${down}`
-                : 'Emojis: por defecto')
+              (up && down ? `Emojis: ${up} / ${down}` : 'Emojis: por defecto')
           ),
       ],
       ephemeral: true,
