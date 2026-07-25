@@ -6,36 +6,35 @@ import {
 } from 'discord.js';
 import {
   setSuggestionChannel,
-  getSuggestionChannelId,
-  postSuggestion,
+  sendSuggestionPanel,
+  setGuildEmojis,
 } from '../../features/suggestions.js';
 
 export default {
   data: new SlashCommandBuilder()
     .setName('sugerencia')
-    .setDescription('Sistema de sugerencias con votos')
+    .setDescription('Sistema de sugerencias')
     .addSubcommand((sub) =>
       sub
-        .setName('enviar')
-        .setDescription('Enviar una sugerencia')
-        .addStringOption((opt) =>
+        .setName('setup')
+        .setDescription('Poner el panel de sugerencias en un canal')
+        .addChannelOption((opt) =>
           opt
-            .setName('mensaje')
-            .setDescription('Tu sugerencia')
+            .setName('canal')
+            .setDescription('Canal del panel')
+            .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
             .setRequired(true)
-            .setMaxLength(1000)
         )
     )
     .addSubcommand((sub) =>
       sub
-        .setName('setup')
-        .setDescription('Elegir el canal de sugerencias')
-        .addChannelOption((opt) =>
-          opt
-            .setName('canal')
-            .setDescription('Canal donde se publicarán las sugerencias')
-            .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
-            .setRequired(true)
+        .setName('emojis')
+        .setDescription('Cambiar los emojis de voto')
+        .addStringOption((opt) =>
+          opt.setName('positivo').setDescription('Emoji a favor (👍 o :custom:)').setRequired(true)
+        )
+        .addStringOption((opt) =>
+          opt.setName('negativo').setDescription('Emoji en contra (👎 o :custom:)').setRequired(true)
         )
     ),
 
@@ -44,52 +43,41 @@ export default {
   async execute(interaction) {
     const sub = interaction.options.getSubcommand();
 
-    // ---- SETUP ----
     if (sub === 'setup') {
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
         return interaction.reply({
-          content: 'Solo un **Administrador** puede configurar el canal de sugerencias.',
+          content: 'Solo administradores.',
           ephemeral: true,
         });
       }
 
       const channel = interaction.options.getChannel('canal');
       await setSuggestionChannel(interaction.guild.id, channel.id);
+      await sendSuggestionPanel(channel);
 
       const embed = new EmbedBuilder()
-        .setColor(0x9B59B6)
-        .setAuthor({ name: 'Envenenado RP' })
-        .setTitle('Canal de sugerencias configurado')
-        .setDescription(`Las sugerencias se publicarán en ${channel}`)
-        .setFooter({ text: 'Powered by Bandido' });
+        .setColor(0xF5A623)
+        .setTitle('Panel de sugerencias listo')
+        .setDescription(`Panel enviado a ${channel}`)
+        .setFooter({ text: 'Envenenado RP' });
 
       return interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
-    // ---- ENVIAR ----
-    if (sub === 'enviar') {
-      const text = interaction.options.getString('mensaje');
-      const channelId = getSuggestionChannelId(interaction.guild.id);
-
-      if (!channelId) {
+    if (sub === 'emojis') {
+      if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
         return interaction.reply({
-          content: 'El canal de sugerencias no está configurado. Un admin debe usar `/sugerencia setup`.',
+          content: 'Solo administradores.',
           ephemeral: true,
         });
       }
 
-      const channel = interaction.guild.channels.cache.get(channelId);
-      if (!channel) {
-        return interaction.reply({
-          content: 'No encontré el canal de sugerencias. Vuelve a configurar con `/sugerencia setup`.',
-          ephemeral: true,
-        });
-      }
-
-      await postSuggestion(channel, interaction.user, text);
+      const up = interaction.options.getString('positivo');
+      const down = interaction.options.getString('negativo');
+      await setGuildEmojis(interaction.guild.id, up, down);
 
       return interaction.reply({
-        content: `✅ Tu sugerencia se publicó en ${channel}`,
+        content: `Emojis actualizados:\nA favor: ${up}\nEn contra: ${down}\n\nSe aplican en **nuevas** sugerencias.`,
         ephemeral: true,
       });
     }
