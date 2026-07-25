@@ -130,6 +130,7 @@ function buildVoteRow(guildId, upCount = 0, downCount = 0, forceUnicode = false)
   }
 
   const { up, down } = getGuildEmojis(guildId);
+
   try {
     const e = parseEmoji(up);
     if (e) upBtn.setEmoji(e);
@@ -137,6 +138,7 @@ function buildVoteRow(guildId, upCount = 0, downCount = 0, forceUnicode = false)
   } catch {
     upBtn.setEmoji('👍');
   }
+
   try {
     const e = parseEmoji(down);
     if (e) downBtn.setEmoji(e);
@@ -144,15 +146,16 @@ function buildVoteRow(guildId, upCount = 0, downCount = 0, forceUnicode = false)
   } catch {
     downBtn.setEmoji('👎');
   }
+
   return new ActionRowBuilder().addComponents(upBtn, downBtn);
 }
 
-function buildSuggestionEmbed(guildId, user, title, details) {
+/** Un solo mensaje: solo el texto, sin título duplicado */
+function buildSuggestionEmbed(guildId, user, text) {
   const { color } = getSettings(guildId);
   return new EmbedBuilder()
     .setColor(color)
-    .setTitle(`💡 ${title}`)
-    .setDescription(details)
+    .setDescription(text)
     .addFields({ name: '\u200b', value: `» **Sugerido por:** ${user}` })
     .setFooter({ text: 'Envenenado RP • Sugerencias' })
     .setTimestamp();
@@ -193,8 +196,7 @@ export async function handleSuggestionMessage(message) {
   try {
     await message.delete().catch(() => {});
 
-    const title = text.length > 80 ? text.slice(0, 77) + '...' : text;
-    const embed = buildSuggestionEmbed(message.guild.id, message.author, title, text);
+    const embed = buildSuggestionEmbed(message.guild.id, message.author, text);
 
     let msg;
     try {
@@ -209,7 +211,6 @@ export async function handleSuggestionMessage(message) {
       up: [],
       down: [],
       authorId: message.author.id,
-      title,
       details: text,
     });
 
@@ -220,7 +221,7 @@ export async function handleSuggestionMessage(message) {
   }
 }
 
-/** Clicks en 👍 / 👎 */
+/** Clicks en votos */
 export async function handleSuggestionInteraction(interaction) {
   if (!interaction.isButton()) return false;
   if (interaction.customId !== UP_ID && interaction.customId !== DOWN_ID) return false;
