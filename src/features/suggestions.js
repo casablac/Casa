@@ -20,10 +20,8 @@ const MODAL_ID = 'sug_submit_modal';
 const UP_ID = 'sug_upvote';
 const DOWN_ID = 'sug_downvote';
 
-// Defaults
-const DEFAULT_BANNER =
-  'https://i.imgur.com/CHwoiQX.gif';
-const DEFAULT_COLOR = 0x9B59B6;
+const DEFAULT_BANNER = 'https://i.imgur.com/CHwoiQX.gif';
+const DEFAULT_COLOR = 0x9b59b6;
 const UP_EMOJI = { id: '1530371857583177778', name: 'up' };
 const DOWN_EMOJI = { id: '1530372010822074483', name: 'down' };
 
@@ -33,7 +31,7 @@ function ensureConfig() {
   if (!fs.existsSync(CONFIG_PATH)) {
     fs.writeFileSync(
       CONFIG_PATH,
-      JSON.stringify({ channels: {}, votes: {}, emojis: {}, settings: {} }, null, 2),
+      JSON.stringify({ channels: {}, votes: {}, emojis: {}, settings: {}, panels: {} }, null, 2),
       'utf8'
     );
   }
@@ -44,7 +42,7 @@ function readConfig() {
     ensureConfig();
     return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8') || '{}');
   } catch {
-    return { channels: {}, votes: {}, emojis: {}, settings: {} };
+    return { channels: {}, votes: {}, emojis: {}, settings: {}, panels: {} };
   }
 }
 
@@ -137,7 +135,6 @@ function buildVoteRow(guildId, upCount = 0, downCount = 0, forceUnicode = false)
     .setCustomId(UP_ID)
     .setLabel(String(upCount))
     .setStyle(ButtonStyle.Secondary);
-
   const downBtn = new ButtonBuilder()
     .setCustomId(DOWN_ID)
     .setLabel(String(downCount))
@@ -198,11 +195,36 @@ export function buildPanelButton() {
   );
 }
 
+async function deleteOldPanel(guild) {
+  const config = readConfig();
+  const panel = config.panels?.[guild.id];
+  if (!panel?.channelId || !panel?.messageId) return;
+
+  try {
+    const channel = await guild.channels.fetch(panel.channelId).catch(() => null);
+    if (!channel) return;
+    const message = await channel.messages.fetch(panel.messageId).catch(() => null);
+    if (message) await message.delete().catch(() => {});
+  } catch {
+    // ignore
+  }
+}
+
 export async function sendSuggestionPanel(channel) {
-  await channel.send({
+  const msg = await channel.send({
     embeds: [buildPanelEmbed(channel.guildId)],
     components: [buildPanelButton()],
   });
+
+  const config = readConfig();
+  if (!config.panels) config.panels = {};
+  config.panels[channel.guildId] = {
+    channelId: channel.id,
+    messageId: msg.id,
+  };
+  writeConfig(config);
+
+  return msg;
 }
 
 function buildSuggestionEmbed(guildId, user, title, details) {
@@ -257,11 +279,19 @@ export async function handleSuggestionInteraction(interaction) {
     const embed = buildSuggestionEmbed(interaction.guildId, interaction.user, title, details);
 
     try {
-      const row = buildVoteRow(interaction.guildId, 0, 0, false);
-      const msg = await interaction.channel.send({
-        embeds: [embed],
-        components: [row],
-      });
+      // 1) Borrar panel viejo
+      await deleteOldPanel(interaction.guild);
+
+      // 2) Publicar sugerencia
+      let msg;
+      try {
+        const row = buildVoteRow(interaction.guildId, 0, 0, false);
+        msg = await interaction.channel.send({ embeds: [embed], components: [row] });
+      } catch (err) {
+        console.error('Error con emoji custom, usando unicode:', err);
+        const row = buildVoteRow(interaction.guildId, 0, 0, true);
+        msg = await interaction.channel.send({ embeds: [embed], components: [row] });
+      }
 
       saveVotes(msg.id, {
         up: [],
@@ -271,34 +301,15 @@ export async function handleSuggestionInteraction(interaction) {
         details,
       });
 
+      // 3) Panel nuevo abajo
+      await sendSuggestionPanel(interaction.channel);
+
       await interaction.editReply({ content: '✅ Tu sugerencia fue publicada.' });
     } catch (err) {
-      console.error('Error publicando sugerencia (custom emoji):', err);
-
-      try {
-        const row = buildVoteRow(interaction.guildId, 0, 0, true);
-        const msg = await interaction.channel.send({
-          embeds: [embed],
-          components: [row],
-        });
-
-        saveVotes(msg.id, {
-          up: [],
-          down: [],
-          authorId: interaction.user.id,
-          title,
-          details,
-        });
-
-        await interaction.editReply({
-          content: '✅ Sugerencia publicada (emojis custom no disponibles, usé 👍👎).',
-        });
-      } catch (err2) {
-        console.error('Error fallback sugerencia:', err2);
-        await interaction.editReply({
-          content: `❌ No se pudo publicar. Error: ${err2.message || 'Discord API'}`,
-        });
-      }
+      console.error('Error publicando sugerencia:', err);
+      await interaction.editReply({
+        content: `❌ No se pudo publicar. Error: ${err.message || 'Discord API'}`,
+      });
     }
 
     return true;
