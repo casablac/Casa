@@ -134,18 +134,31 @@ function parseEmoji(input) {
 
 function buildVoteRow(guildId, upCount = 0, downCount = 0) {
   const { up, down } = getGuildEmojis(guildId);
+
   const upBtn = new ButtonBuilder()
     .setCustomId(UP_ID)
     .setLabel(String(upCount))
     .setStyle(ButtonStyle.Secondary);
+
   const downBtn = new ButtonBuilder()
     .setCustomId(DOWN_ID)
     .setLabel(String(downCount))
     .setStyle(ButtonStyle.Secondary);
-  const upEmoji = parseEmoji(up);
-  const downEmoji = parseEmoji(down);
-  if (upEmoji) upBtn.setEmoji(upEmoji);
-  if (downEmoji) downBtn.setEmoji(downEmoji);
+
+  try {
+    const upEmoji = parseEmoji(up);
+    if (upEmoji) upBtn.setEmoji(upEmoji);
+  } catch {
+    upBtn.setEmoji('👍');
+  }
+
+  try {
+    const downEmoji = parseEmoji(down);
+    if (downEmoji) downBtn.setEmoji(downEmoji);
+  } catch {
+    downBtn.setEmoji('👎');
+  }
+
   return new ActionRowBuilder().addComponents(upBtn, downBtn);
 }
 
