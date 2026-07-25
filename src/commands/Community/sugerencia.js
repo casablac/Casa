@@ -6,14 +6,13 @@ import {
 } from 'discord.js';
 import {
   setSuggestionChannel,
-  sendSuggestionPanel,
   setGuildEmojis,
 } from '../../features/suggestions.js';
 
 export default {
   data: new SlashCommandBuilder()
     .setName('sugerencia')
-    .setDescription('Configurar el canal de sugerencias')
+    .setDescription('Configurar el canal de sugerencias y emojis de voto')
     .addChannelOption((option) =>
       option
         .setName('canal')
@@ -51,21 +50,23 @@ export default {
 
     await setSuggestionChannel(interaction.guild.id, channel.id);
 
-    try {
-      await sendSuggestionPanel(channel);
-    } catch (e) {
-      console.error('Error enviando panel:', e);
+    // Ya NO se envía el panel
+
+    const lines = [`Canal configurado: ${channel}`];
+    if (up && down) {
+      lines.push(`Emoji a favor: ${up}`);
+      lines.push(`Emoji en contra: ${down}`);
+    } else {
+      lines.push('Emojis: se mantienen los actuales (o por defecto)');
     }
+    lines.push('\nLa gente solo tiene que escribir en ese canal.');
 
     return interaction.reply({
       embeds: [
         new EmbedBuilder()
           .setColor(0x9b59b6)
           .setTitle('Sugerencias listas')
-          .setDescription(
-            `Canal: ${channel}\n` +
-              (up && down ? `Emojis: ${up} / ${down}` : 'Emojis: por defecto')
-          ),
+          .setDescription(lines.join('\n')),
       ],
       ephemeral: true,
     });
