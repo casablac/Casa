@@ -84,11 +84,11 @@ export function buildPanelEmbed(guildId) {
 }
 
 export function buildPanelButton() {
+  // Mismo estilo que "Verificarme" (Primary = morado/azul Discord)
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(OPEN_ID)
       .setLabel('Postularme')
-      .setEmoji('📝')
       .setStyle(ButtonStyle.Primary)
   );
 }
@@ -252,7 +252,7 @@ export async function handleCCInteraction(interaction, client) {
       ? `🟢 Aceptado por ${interaction.user}`
       : `🔴 Rechazado por ${interaction.user}`;
 
-    // Actualizar embed
+    // Actualizar embed de la postulación
     const original = interaction.message.embeds[0];
     const updated = EmbedBuilder.from(original)
       .setColor(statusColor)
@@ -271,7 +271,7 @@ export async function handleCCInteraction(interaction, client) {
       components: [buildDisabledButtons(isApprove)],
     });
 
-    // Rol (si está configurado y aceptado)
+    // Rol al aceptar
     let roleMsg = '';
     if (isApprove && cfg.roleId) {
       try {
@@ -283,7 +283,7 @@ export async function handleCCInteraction(interaction, client) {
       }
     }
 
-    // DM al usuario
+    // 1) DM al usuario
     try {
       const user = await client.users.fetch(userId);
       await user.send({
@@ -304,19 +304,53 @@ export async function handleCCInteraction(interaction, client) {
       // DMs cerrados
     }
 
-    // Log opcional
+    // 2) Canal de RESULTADOS
+    if (cfg.resultsChannelId) {
+      const resultsCh = await interaction.guild.channels
+        .fetch(cfg.resultsChannelId)
+        .catch(() => null);
+
+      if (resultsCh) {
+        await resultsCh.send({
+          embeds: [
+            new EmbedBuilder()
+              .setColor(statusColor)
+              .setTitle(isApprove ? '✅ Resultado de aplicación' : '❌ Resultado de aplicación')
+              .setDescription(
+                isApprove
+                  ? `<@${userId}> fue **aceptado** como Creador de Contenido.`
+                  : `<@${userId}> fue **rechazado** como Creador de Contenido.`
+              )
+              .addFields(
+                { name: 'Usuario', value: `<@${userId}>`, inline: true },
+                { name: 'Estado', value: isApprove ? '🟢 Aceptado' : '🔴 Rechazado', inline: true },
+                { name: 'Revisado por', value: `${interaction.user}`, inline: true }
+              )
+              .setFooter({ text: 'Envenenado RP • Resultados de aplicación' })
+              .setTimestamp(),
+          ],
+        });
+      }
+    }
+
+    // 3) Canal de LOGS (staff)
     if (cfg.logChannelId) {
-      const logCh = await interaction.guild.channels.fetch(cfg.logChannelId).catch(() => null);
+      const logCh = await interaction.guild.channels
+        .fetch(cfg.logChannelId)
+        .catch(() => null);
+
       if (logCh) {
         await logCh.send({
           embeds: [
             new EmbedBuilder()
               .setColor(statusColor)
-              .setTitle(isApprove ? 'Creador aceptado' : 'Creador rechazado')
+              .setTitle(isApprove ? '📋 Log — Creador aceptado' : '📋 Log — Creador rechazado')
               .addFields(
-                { name: 'Usuario', value: `<@${userId}>`, inline: true },
-                { name: 'Staff', value: `${interaction.user}`, inline: true }
+                { name: 'Usuario', value: `<@${userId}> (\`${userId}\`)`, inline: true },
+                { name: 'Staff', value: `${interaction.user} (\`${interaction.user.id}\`)`, inline: true },
+                { name: 'Acción', value: isApprove ? '✅ Aceptar' : '❌ Rechazar', inline: true }
               )
+              .setFooter({ text: 'Envenenado RP • Logs' })
               .setTimestamp(),
           ],
         });
