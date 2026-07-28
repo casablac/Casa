@@ -24,6 +24,10 @@ import {
   handleSuggestionInteraction,
   isSuggestionInteraction,
 } from '../features/suggestions.js';
+import {
+  handleCCInteraction,
+  isCCInteraction,
+} from '../features/contentCreator.js';
 
 const COMMAND_ERROR_SUBTYPES = {
   warn: 'warn_failed',
@@ -71,6 +75,12 @@ export default {
         // Sistema de sugerencias (panel + votos)
         if (isSuggestionInteraction(interaction)) {
           await handleSuggestionInteraction(interaction);
+          return;
+        }
+
+        // Creadores de contenido
+        if (isCCInteraction(interaction)) {
+          await handleCCInteraction(interaction, client);
           return;
         }
 
