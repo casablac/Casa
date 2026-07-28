@@ -24,21 +24,28 @@ export default {
         .addChannelOption((o) =>
           o
             .setName('revision')
-            .setDescription('Canal donde llegan las postulaciones')
+            .setDescription('Canal donde llegan las postulaciones (Aceptar/Rechazar)')
+            .addChannelTypes(ChannelType.GuildText)
+            .setRequired(true)
+        )
+        .addChannelOption((o) =>
+          o
+            .setName('resultados')
+            .setDescription('Canal de resultados (aceptado/rechazado)')
             .addChannelTypes(ChannelType.GuildText)
             .setRequired(true)
         )
         .addChannelOption((o) =>
           o
             .setName('logs')
-            .setDescription('Canal de logs (opcional)')
+            .setDescription('Canal de logs del staff')
             .addChannelTypes(ChannelType.GuildText)
             .setRequired(false)
         )
         .addRoleOption((o) =>
           o
             .setName('rol')
-            .setDescription('Rol que se da al aceptar (opcional)')
+            .setDescription('Rol que se da al aceptar')
             .setRequired(false)
         )
         .addStringOption((o) =>
@@ -64,6 +71,7 @@ export default {
 
     const panelChannel = interaction.options.getChannel('panel');
     const reviewChannel = interaction.options.getChannel('revision');
+    const resultsChannel = interaction.options.getChannel('resultados');
     const logChannel = interaction.options.getChannel('logs');
     const role = interaction.options.getRole('rol');
     const imagen = interaction.options.getString('imagen');
@@ -71,6 +79,7 @@ export default {
 
     const patch = {
       reviewChannelId: reviewChannel.id,
+      resultsChannelId: resultsChannel.id,
     };
     if (logChannel) patch.logChannelId = logChannel.id;
     if (role) patch.roleId = role.id;
@@ -96,7 +105,8 @@ export default {
           .setDescription(
             [
               `📌 Panel: ${panelChannel}`,
-              `📥 Revisión: ${reviewChannel}`,
+              `📥 Revisión (staff): ${reviewChannel}`,
+              `📢 Resultados: ${resultsChannel}`,
               logChannel ? `📋 Logs: ${logChannel}` : null,
               role ? `🎭 Rol al aceptar: ${role}` : null,
               imagen ? `🖼️ Imagen configurada` : null,
