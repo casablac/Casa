@@ -24,7 +24,7 @@ export const botConfig = {
     activities: [
       {
         name: "Custom Status", // required by Discord API, not shown in the client
-        state: "🥴 Envenenado RP | Bot",     // this is what people actually see
+        state: "🥴 XFile Leaks | Bot",     // this is what people actually see
         type: 4,               // Custom
       },
     ],
