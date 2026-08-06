@@ -20,7 +20,7 @@ const CLAIM_ID = 'wisxo_claim_ticket_btn';
 const CLOSE_ID = 'wisxo_close_ticket_btn';
 const RATE_PREFIX = 'wisxo_rate_';
 
-const BANNER_URL = 'https://media.discordapp.net/attachments/1529542705343102987/1529551027680841808/envenenado_rp.gif';
+const BANNER_URL = 'https://cdn.discordapp.com/attachments/1354521583997288541/1534989367607693384/banner_trump.webp?ex=6a7621bf&is=6a74d03f&hm=8dbdc9ce3af9bcdd1052279002cd527f75f8b6e0aac35e3761c8995a402a0c2e&=';
 
 const TICKET_OPTIONS = [
   { label: 'Soporte', description: 'Soporte', emoji: '💜', value: 'soporte' },
