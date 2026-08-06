@@ -40,26 +40,47 @@ export default {
   category: 'Ticket',
 
   async execute(interaction) {
-    const panelChannel = interaction.options.getChannel('panel');
-    const feedbackChannel = interaction.options.getChannel('feedback');
-    const logsChannel = interaction.options.getChannel('logs');
+    await interaction.deferReply({ ephemeral: true });
 
-    await setTicketFeedbackChannel(interaction.guild.id, feedbackChannel.id);
-    await setTicketLogsChannel(interaction.guild.id, logsChannel.id);
-    await sendTicketPanel(panelChannel);
+    try {
+      const panelChannel = interaction.options.getChannel('panel');
+      const feedbackChannel = interaction.options.getChannel('feedback');
+      const logsChannel = interaction.options.getChannel('logs');
 
-    const embed = new EmbedBuilder()
-      .setColor(0x9B59B6)
-      .setAuthor({ name: 'Envenenado RP' })
-      .setTitle('Tickets configurados')
-      .setDescription('El sistema de tickets quedó listo.')
-      .addFields(
-        { name: '📌 Panel de tickets', value: `${panelChannel}`, inline: true },
-        { name: '⭐ Canal de feedback', value: `${feedbackChannel}`, inline: true },
-        { name: '📋 Canal de logs', value: `${logsChannel}`, inline: true }
-      )
-      .setFooter({ text: 'Powered by Bandido' });
+      const me = interaction.guild.members.me;
+      const perms = panelChannel.permissionsFor(me);
+      if (!perms?.has(['ViewChannel', 'SendMessages', 'EmbedLinks'])) {
+        return interaction.editReply({
+          content:
+            '❌ No tengo permisos en el canal del **panel**.\n' +
+            'Necesito: Ver canal, Enviar mensajes e Insertar enlaces.',
+        });
+      }
 
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+      await setTicketFeedbackChannel(interaction.guild.id, feedbackChannel.id);
+      await setTicketLogsChannel(interaction.guild.id, logsChannel.id);
+      await sendTicketPanel(panelChannel);
+
+      const embed = new EmbedBuilder()
+        .setColor(0x9b59b6)
+        .setAuthor({ name: 'Tu Servidor RP' }) // ← cambia el nombre aquí
+        .setTitle('Tickets configurados')
+        .setDescription('El sistema de tickets quedó listo.')
+        .addFields(
+          { name: '📌 Panel de tickets', value: `${panelChannel}`, inline: true },
+          { name: '⭐ Canal de feedback', value: `${feedbackChannel}`, inline: true },
+          { name: '📋 Canal de logs', value: `${logsChannel}`, inline: true }
+        )
+        .setFooter({ text: 'Powered by Bandido' });
+
+      await interaction.editReply({ embeds: [embed] });
+    } catch (error) {
+      console.error('[ticketsetup] Error:', error);
+      await interaction
+        .editReply({
+          content: `❌ Error:\n\`\`\`${error?.message || error}\`\`\``,
+        })
+        .catch(() => {});
+    }
   },
 };
