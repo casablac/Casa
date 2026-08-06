@@ -403,12 +403,12 @@ async function rateTicket(interaction) {
 
 export async function sendTicketPanel(channel) {
   const embed = new EmbedBuilder()
-    .setAuthor({ name: 'Envenenado RP' })
+    .setAuthor({ name: 'CasaB Ticket' })
     .setTitle('Ayuda y Soporte')
-    .setDescription('Abre un ticket interactuando con el menú de abajo. Recuerda que si abres ticket sin una razón podrás ser sancionado.')
+    .setDescription('Abre un ticket interactuando con el menú de abajo.')
     .setColor(0x9B59B6)
-    .setImage(BANNER_URL)
-    .setFooter({ text: 'Powered by Bandido' });
+    .setImage('https://cdn.discordapp.com/attachments/1354521583997288541/1534989367607693384/banner_trump.webp?ex=6a7621bf&is=6a74d03f&hm=8dbdc9ce3af9bcdd1052279002cd527f75f8b6e0aac35e3761c8995a402a0c2e&=')
+    .setFooter({ text: 'Powered by CasaB' });
 
   await channel.send({ embeds: [embed], components: [buildPanelView()] });
 }
