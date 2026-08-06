@@ -24,10 +24,7 @@ const BANNER_URL = 'https://cdn.discordapp.com/attachments/1354521583997288541/1
 
 const TICKET_OPTIONS = [
   { label: 'Soporte', description: 'Soporte', emoji: '💜', value: 'soporte' },
-  { label: 'Reportar Staff', description: 'Reportar Miembro De Staff', emoji: '🔴', value: 'reportar' },
-  { label: 'Donacion', description: 'Para Donacion', emoji: '💳', value: 'donacion' },
-  { label: 'Apelar Ban', description: 'Apelar Tu Ban', emoji: '🔨', value: 'apelacion' },
-  { label: 'Organizaciones', description: 'Para Crear Org', emoji: '🔫', value: 'organizaciones' },
+  { label: 'PartnerShip', description: 'PartnerShip', emoji: '', value: 'partnership' },
 ];
 
 function ensureConfigFile() {
@@ -118,16 +115,8 @@ function welcomeMessage(value, member) {
   switch (value) {
     case 'soporte':
       return `Bienvenid@ ${member} a Tickets de soporte. Por favor, describe tu problema.`;
-    case 'reportar':
-      return `Bienvenid@ ${member} al informe del staff. Por favor, proporciona los detalles del reporte.`;
-    case 'donacion':
-      return `Bienvenid@ ${member}. ¡Gracias por considerar hacer una donación! ¿Cómo podemos ayudar?`;
-    case 'apelacion':
-      return `Bienvenid@ ${member}. Por favor, proporciona detalles para tu apelación de baneo.`;
-    case 'organizaciones':
-      return `Bienvenid@ ${member}. Aquí es para crear tu organización.`;
-    default:
-      return `Bienvenid@ ${member}. Por favor describe tu solicitud.`;
+    case 'partnership':
+      return `Bienvenid@ ${member} aqui en este ticket puedes hacer alianza con nosotros.`;
   }
 }
 
@@ -145,12 +134,12 @@ async function sendTicketLog(guild, { title, color, fields, user }) {
   if (!channel) return;
 
   const embed = new EmbedBuilder()
-    .setAuthor({ name: 'Envenenado RP • Logs de Tickets' })
+    .setAuthor({ name: 'CasaB • Logs de Tickets' })
     .setTitle(title)
     .setColor(color)
     .addFields(fields)
     .setTimestamp()
-    .setFooter({ text: 'Powered by Bandido' });
+    .setFooter({ text: 'Powered by CasaB' });
 
   if (user) embed.setThumbnail(user.displayAvatarURL({ size: 256 }));
   await channel.send({ embeds: [embed] }).catch(() => {});
