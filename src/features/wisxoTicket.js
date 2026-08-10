@@ -395,7 +395,7 @@ export async function sendTicketPanel(channel) {
     .setAuthor({ name: 'CasaB Ticket' })
     .setTitle('Ayuda y Soporte')
     .setDescription('Abre un ticket interactuando con el menú de abajo.')
-    .setColor(000000)
+    .setColor(0x000000)
     .setFooter({ text: 'Powered by CasaB' });
 
   await channel.send({ embeds: [embed], components: [buildPanelView()] });
