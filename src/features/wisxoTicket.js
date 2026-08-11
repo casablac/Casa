@@ -24,7 +24,7 @@ const BANNER_URL = 'https://cdn.discordapp.com/attachments/1354521583997288541/1
 
 const TICKET_OPTIONS = [
   { label: 'Soporte', description: 'Soporte', emoji: '💜', value: 'soporte' },
-  { label: 'PartnerShip', description: 'PartnerShip', emoji: '', value: 'partnership' },
+  { label: 'PartnerShip', description: 'PartnerShip', emoji: '🤝', value: 'partnership' },
 ];
 
 function ensureConfigFile() {
