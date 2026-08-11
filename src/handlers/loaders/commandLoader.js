@@ -7,13 +7,14 @@ import botConfig, { isCommandCategoryEnabled } from '../../config/bot.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
 const MAX_COMMANDS = 100;
 const COMMAND_COUNT_WARN_THRESHOLD = 90;
 
 // Estos se registran primero para que NUNCA los corte el límite de 100
 const PRIORITY_COMMANDS = [
   'ticket',
+  'ticketsetup',
+  'ticketlogs',
   'welcome',
   'goodbye',
   'greet',
@@ -77,41 +78,32 @@ export async function loadCommands(client) {
   const commandsPath = path.join(__dirname, '../../commands');
   const commandFiles = await getAllFiles(commandsPath);
   logger.info(`Found ${commandFiles.length} command files to load`);
-
   const uniqueCommandNames = new Set();
-
   for (const filePath of commandFiles) {
     try {
       const normalizedPath = filePath.replace(/\\/g, '/');
       const commandDir = path.dirname(filePath);
       const category = path.basename(commandDir);
-
       // Saltar categorías desactivadas en bot.js → features
       if (!isCommandCategoryEnabled(category)) {
         logger.info(`Skipping disabled category: ${category} (${normalizedPath})`);
         continue;
       }
-
       const commandModule = await import(`file://${filePath}`);
       const command = commandModule.default || commandModule;
-
       if (!command.data || !command.execute) {
         logger.warn(
           `Command at ${filePath} is missing required "data" or "execute" property.`
         );
         continue;
       }
-
       command.category = category;
       command.filePath = normalizedPath;
-
       const primaryCommandName = command.data.name;
-
       if (!uniqueCommandNames.has(primaryCommandName)) {
         uniqueCommandNames.add(primaryCommandName);
         client.commands.set(primaryCommandName, command);
       }
-
       const subcommands = getSubcommandInfo(command.data.toJSON());
       logger.info(
         `Loaded command: ${primaryCommandName} from ${normalizedPath} (category: ${category})`
@@ -123,7 +115,6 @@ export async function loadCommands(client) {
       logger.error(`Error loading command from ${filePath}:`, error);
     }
   }
-
   logger.info(`Loaded ${uniqueCommandNames.size} commands`);
   return client.commands;
 }
@@ -132,37 +123,30 @@ function collectCommandPayloads(client) {
   const commands = [];
   let totalSubcommands = 0;
   const registeredNames = new Set();
-
   for (const command of client.commands.values()) {
     if (!command.data || typeof command.data.toJSON !== 'function') {
       logger.warn(`Command missing data or toJSON method: ${command}`);
       continue;
     }
-
     const commandName = command.data.name;
     logger.debug(`Processing command for registration: ${commandName}`);
-
     if (registeredNames.has(commandName)) {
       logger.debug(`Skipping duplicate command: ${commandName}`);
       continue;
     }
-
     registeredNames.add(commandName);
     const commandJson = command.data.toJSON();
     commands.push(commandJson);
     totalSubcommands += getSubcommandInfo(commandJson).length;
-
     if (process.env.NODE_ENV !== 'production') {
       logger.debug(`Registering command: ${commandName}`);
     }
   }
-
   return { commands, totalSubcommands };
 }
 
 function validateCommands(commands) {
   const validationErrors = [];
-
   for (const cmd of commands) {
     if (cmd.name && cmd.name.length > 32) {
       validationErrors.push(
@@ -175,7 +159,6 @@ function validateCommands(commands) {
       );
     }
     if (!cmd.options) continue;
-
     for (const option of cmd.options) {
       if (option.name && option.name.length > 32) {
         validationErrors.push(
@@ -202,7 +185,6 @@ function validateCommands(commands) {
         }
       }
       if (!option.options) continue;
-
       for (const subOption of option.options) {
         if (subOption.name && subOption.name.length > 32) {
           validationErrors.push(
@@ -217,7 +199,6 @@ function validateCommands(commands) {
       }
     }
   }
-
   if (validationErrors.length > 0) {
     logger.error('Command validation failed. Errors:');
     validationErrors.forEach((error) => logger.error(` - ${error}`));
@@ -233,7 +214,6 @@ function prepareCommandsForRegistration(commands) {
       `Command count (${commands.length}) is near Discord's ${MAX_COMMANDS} global command limit`
     );
   }
-
   // Priorizar ticket, welcome, etc.
   const sorted = [...commands].sort((a, b) => {
     const ai = PRIORITY_COMMANDS.indexOf(a.name);
@@ -242,11 +222,9 @@ function prepareCommandsForRegistration(commands) {
     const bp = bi === -1 ? 999 : bi;
     return ap - bp;
   });
-
   if (sorted.length <= MAX_COMMANDS) {
     return sorted;
   }
-
   logger.warn(
     `Command count (${sorted.length}) exceeds Discord limit (${MAX_COMMANDS}), truncating...`
   );
@@ -270,21 +248,17 @@ async function registerGlobalCommands(client, clientId, commands, totalSubcomman
       'Discord REST client is not available for slash command registration'
     );
   }
-
   logger.info(
     `Preparing to register ${totalSubcommands + commands.length} commands globally`
   );
   logger.info('Validating commands before registration...');
   validateCommands(commands);
   logger.info('Command validation passed');
-
   const commandsToRegister = prepareCommandsForRegistration(commands);
-
   if (botConfig.commands?.deleteCommands) {
     logger.info('Clearing existing global commands before registration...');
     await client.rest.put(`/applications/${clientId}/commands`, { body: [] });
   }
-
   logger.info(`Registering ${commandsToRegister.length} global commands...`);
   await client.rest.put(`/applications/${clientId}/commands`, {
     body: commandsToRegister,
@@ -297,11 +271,70 @@ async function registerGlobalCommands(client, clientId, commands, totalSubcomman
   );
 }
 
+async function registerGuildCommands(client, clientId, guildId, commands, totalSubcommands) {
+  if (!clientId) {
+    throw new Error('CLIENT_ID is required for slash command registration');
+  }
+  if (!guildId) {
+    throw new Error('GUILD_ID is required for guild slash command registration');
+  }
+  if (!client.rest) {
+    throw new Error(
+      'Discord REST client is not available for slash command registration'
+    );
+  }
+
+  logger.info(`Preparing to register ${commands.length} commands to guild ${guildId}`);
+  logger.info('Validating commands before registration...');
+  validateCommands(commands);
+  logger.info('Command validation passed');
+
+  const commandsToRegister = prepareCommandsForRegistration(commands);
+
+  // Limpia comandos viejos del servidor y registra los nuevos (instantáneo)
+  logger.info(`Clearing existing guild commands for ${guildId}...`);
+  await client.rest.put(`/applications/${clientId}/guilds/${guildId}/commands`, {
+    body: [],
+  });
+
+  logger.info(`Registering ${commandsToRegister.length} guild commands...`);
+  await client.rest.put(`/applications/${clientId}/guilds/${guildId}/commands`, {
+    body: commandsToRegister,
+  });
+  logger.info(
+    `Successfully registered ${commandsToRegister.length} guild commands (instant)`
+  );
+}
+
 export async function registerCommands(client, options = {}) {
   const { clientId = null } = options;
+  const guildId =
+    process.env.GUILD_ID || client?.config?.bot?.guildId || null;
+
   try {
     const { commands, totalSubcommands } = collectCommandPayloads(client);
-    await registerGlobalCommands(client, clientId, commands, totalSubcommands);
+
+    // Si hay GUILD_ID, registra en ese servidor (aparece al instante)
+    if (guildId) {
+      await registerGuildCommands(
+        client,
+        clientId,
+        guildId,
+        commands,
+        totalSubcommands
+      );
+      // También actualiza global en segundo plano (puede tardar hasta 1 hora)
+      registerGlobalCommands(client, clientId, commands, totalSubcommands).catch(
+        (err) => {
+          logger.warn(
+            'Background global command registration failed:',
+            err.message
+          );
+        }
+      );
+    } else {
+      await registerGlobalCommands(client, clientId, commands, totalSubcommands);
+    }
   } catch (error) {
     logger.error('Error registering commands:', error);
     throw error;
