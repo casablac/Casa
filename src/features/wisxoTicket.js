@@ -419,6 +419,21 @@ async function closeTicket(interaction) {
     ],
   });
 
+  const feedbackChannelId = getTicketFeedbackChannelId(interaction.guild.id);
+
+  // Sin feedback configurado → cierra directo
+  if (!feedbackChannelId) {
+    await interaction.reply({
+      content: '🔒 Ticket cerrado. Eliminando canal...',
+    });
+    const channel = interaction.channel;
+    setTimeout(() => {
+      if (channel) channel.delete().catch(() => {});
+    }, 3000);
+    return true;
+  }
+
+  // Con feedback → muestra estrellas
   const rateEmbed = new EmbedBuilder()
     .setAuthor({ name: 'XF L' })
     .setTitle('¿Cómo calificas la atención?')
