@@ -35,6 +35,12 @@ export default {
         .setDescription('Canal de calificaciones (estrellas) — opcional')
         .addChannelTypes(ChannelType.GuildText)
         .setRequired(false)
+    )
+    .addStringOption((opt) =>
+      opt
+        .setName('imagen')
+        .setDescription('Link de la imagen del panel (opcional)')
+        .setRequired(false)
     ),
 
   category: 'Ticket',
@@ -46,6 +52,22 @@ export default {
       const panelChannel = interaction.options.getChannel('panel');
       const feedbackChannel = interaction.options.getChannel('feedback');
       const logsChannel = interaction.options.getChannel('logs');
+      const imageUrl = interaction.options.getString('imagen');
+
+      if (imageUrl) {
+        try {
+          const url = new URL(imageUrl);
+          if (!['http:', 'https:'].includes(url.protocol)) {
+            return interaction.editReply({
+              content: '❌ El link de la imagen debe empezar con `http://` o `https://`.',
+            });
+          }
+        } catch {
+          return interaction.editReply({
+            content: '❌ El link de la imagen no es válido.',
+          });
+        }
+      }
 
       const me = interaction.guild.members.me;
       const perms = panelChannel.permissionsFor(me);
@@ -63,7 +85,7 @@ export default {
         await setTicketFeedbackChannel(interaction.guild.id, feedbackChannel.id);
       }
 
-      await sendTicketPanel(panelChannel);
+      await sendTicketPanel(panelChannel, imageUrl);
 
       const fields = [
         { name: '📌 Panel de tickets', value: `${panelChannel}`, inline: true },
@@ -79,8 +101,16 @@ export default {
       } else {
         fields.push({
           name: '⭐ Canal de feedback',
-          value: '`No configurado (opcional)`',
+          value: '`No configurado`',
           inline: true,
+        });
+      }
+
+      if (imageUrl) {
+        fields.push({
+          name: '🖼️ Imagen',
+          value: `[Ver imagen](${imageUrl})`,
+          inline: false,
         });
       }
 
@@ -91,6 +121,8 @@ export default {
         .setDescription('El sistema de tickets quedó listo.')
         .addFields(fields)
         .setFooter({ text: 'Powered by Bandido' });
+
+      if (imageUrl) embed.setImage(imageUrl);
 
       await interaction.editReply({ embeds: [embed] });
     } catch (error) {
