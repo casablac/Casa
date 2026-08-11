@@ -224,6 +224,7 @@ async function createTicket(interaction) {
   const existing = guild.channels.cache.find(
     (c) => c.name === ticketName && c.type === ChannelType.GuildText
   );
+
   if (existing) {
     await interaction.reply({
       content: `Ya tienes un ticket abierto: ${existing}`,
@@ -366,6 +367,7 @@ async function claimTicket(interaction) {
   await interaction.update({
     components: [buildActionView(interaction.user.displayName)],
   });
+
   await interaction.channel.send(
     `El ticket ha sido reclamado por ${interaction.user}.`
   );
@@ -493,8 +495,9 @@ export async function sendTicketPanel(channel, imageUrl = null) {
 }
 
 export function isWisxoTicketInteraction(interaction) {
-  if (interaction.isStringSelectMenu() && interaction.customId === SELECT_ID)
+  if (interaction.isStringSelectMenu() && interaction.customId === SELECT_ID) {
     return true;
+  }
   if (
     interaction.isButton() &&
     (interaction.customId === CLAIM_ID ||
