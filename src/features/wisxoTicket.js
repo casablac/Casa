@@ -12,7 +12,7 @@ import {
 
 export default {
   data: new SlashCommandBuilder()
-    .setName('ticketsetup')
+    .setName('ticketcfg')
     .setDescription('Configura panel, feedback y logs de tickets')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addChannelOption((opt) =>
