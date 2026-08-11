@@ -24,17 +24,17 @@ export default {
     )
     .addChannelOption((opt) =>
       opt
-        .setName('feedback')
-        .setDescription('Canal donde llegarán las calificaciones (estrellas)')
+        .setName('logs')
+        .setDescription('Canal de logs (quién creó / reclamó / cerró el ticket)')
         .addChannelTypes(ChannelType.GuildText)
         .setRequired(true)
     )
     .addChannelOption((opt) =>
       opt
-        .setName('logs')
-        .setDescription('Canal de logs (quién creó / reclamó / cerró el ticket)')
+        .setName('feedback')
+        .setDescription('Canal de calificaciones (estrellas) — opcional')
         .addChannelTypes(ChannelType.GuildText)
-        .setRequired(true)
+        .setRequired(false)
     ),
 
   category: 'Ticket',
@@ -57,20 +57,39 @@ export default {
         });
       }
 
-      await setTicketFeedbackChannel(interaction.guild.id, feedbackChannel.id);
       await setTicketLogsChannel(interaction.guild.id, logsChannel.id);
+
+      if (feedbackChannel) {
+        await setTicketFeedbackChannel(interaction.guild.id, feedbackChannel.id);
+      }
+
       await sendTicketPanel(panelChannel);
+
+      const fields = [
+        { name: '📌 Panel de tickets', value: `${panelChannel}`, inline: true },
+        { name: '📋 Canal de logs', value: `${logsChannel}`, inline: true },
+      ];
+
+      if (feedbackChannel) {
+        fields.push({
+          name: '⭐ Canal de feedback',
+          value: `${feedbackChannel}`,
+          inline: true,
+        });
+      } else {
+        fields.push({
+          name: '⭐ Canal de feedback',
+          value: '`No configurado (opcional)`',
+          inline: true,
+        });
+      }
 
       const embed = new EmbedBuilder()
         .setColor(0x9b59b6)
-        .setAuthor({ name: 'Tu Servidor RP' }) // ← cambia el nombre aquí
+        .setAuthor({ name: 'Tu Servidor RP' })
         .setTitle('Tickets configurados')
         .setDescription('El sistema de tickets quedó listo.')
-        .addFields(
-          { name: '📌 Panel de tickets', value: `${panelChannel}`, inline: true },
-          { name: '⭐ Canal de feedback', value: `${feedbackChannel}`, inline: true },
-          { name: '📋 Canal de logs', value: `${logsChannel}`, inline: true }
-        )
+        .addFields(fields)
         .setFooter({ text: 'Powered by Bandido' });
 
       await interaction.editReply({ embeds: [embed] });
