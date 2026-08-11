@@ -20,11 +20,22 @@ const CLAIM_ID = 'wisxo_claim_ticket_btn';
 const CLOSE_ID = 'wisxo_close_ticket_btn';
 const RATE_PREFIX = 'wisxo_rate_';
 
-const BANNER_URL = 'https://cdn.discordapp.com/attachments/1354521583997288541/1534989367607693384/banner_trump.webp?ex=6a7621bf&is=6a74d03f&hm=8dbdc9ce3af9bcdd1052279002cd527f75f8b6e0aac35e3761c8995a402a0c2e&=';
+const BANNER_URL =
+  'https://cdn.discordapp.com/attachments/1354521583997288541/1534989367607693384/banner_trump.webp?ex=6a7621bf&is=6a74d03f&hm=8dbdc9ce3af9bcdd1052279002cd527f75f8b6e0aac35e3761c8995a402a0c2e&=';
 
 const TICKET_OPTIONS = [
-  { label: 'Soporte', description: 'Soporte', emoji: '💜', value: 'soporte' },
-  { label: 'PartnerShip', description: 'PartnerShip', emoji: '🤝', value: 'partnership' },
+  {
+    label: 'Soporte',
+    description: 'Soporte general del servidor',
+    emoji: '💜',
+    value: 'soporte',
+  },
+  {
+    label: 'PartnerShip',
+    description: 'Solicitudes de partnership / alianza',
+    emoji: '🤝',
+    value: 'partnership',
+  },
 ];
 
 function ensureConfigFile() {
@@ -49,12 +60,21 @@ function writeConfig(data) {
 
 export function getTicketLogsChannelId(guildId) {
   const config = readConfig();
-  return config[`${guildId}_logs`] || config[guildId] || process.env.TICKET_LOGS_CHANNEL_ID || null;
+  return (
+    config[`${guildId}_logs`] ||
+    config[guildId] ||
+    process.env.TICKET_LOGS_CHANNEL_ID ||
+    null
+  );
 }
 
 export function getTicketFeedbackChannelId(guildId) {
   const config = readConfig();
-  return config[`${guildId}_feedback`] || process.env.TICKET_FEEDBACK_CHANNEL_ID || null;
+  return (
+    config[`${guildId}_feedback`] ||
+    process.env.TICKET_FEEDBACK_CHANNEL_ID ||
+    null
+  );
 }
 
 export async function setTicketLogsChannel(guildId, channelId) {
@@ -85,11 +105,13 @@ function buildActionView(claimedBy = null) {
     .setStyle(ButtonStyle.Success)
     .setEmoji('🙋')
     .setDisabled(Boolean(claimedBy));
+
   const closeBtn = new ButtonBuilder()
     .setCustomId(CLOSE_ID)
     .setLabel('Cerrar Ticket')
     .setStyle(ButtonStyle.Danger)
     .setEmoji('🔒');
+
   return new ActionRowBuilder().addComponents(claimBtn, closeBtn);
 }
 
@@ -117,6 +139,8 @@ function welcomeMessage(value, member) {
       return `Bienvenid@ ${member} a Tickets de soporte. Por favor, describe tu problema.`;
     case 'partnership':
       return `Bienvenid@ ${member} aqui en este ticket puedes hacer alianza con nosotros.`;
+    default:
+      return `Bienvenid@ ${member}. Describe tu solicitud.`;
   }
 }
 
@@ -154,10 +178,14 @@ async function sendTicketFeedback(guild, { user, stars, channelName }) {
   const embed = new EmbedBuilder()
     .setAuthor({ name: 'Envenenado RP • Calificación de Ticket' })
     .setTitle('Nueva calificación')
-    .setColor(0xFEE75C)
+    .setColor(0xfee75c)
     .addFields(
       { name: 'Usuario', value: `${user} (\`${user.id}\`)`, inline: true },
-      { name: 'Calificación', value: `${starsText(stars)} (${stars}/5)`, inline: true },
+      {
+        name: 'Calificación',
+        value: `${starsText(stars)} (${stars}/5)`,
+        inline: true,
+      },
       { name: 'Ticket', value: `\`${channelName}\``, inline: true }
     )
     .setThumbnail(user.displayAvatarURL({ size: 256 }))
@@ -187,6 +215,7 @@ async function createTicket(interaction) {
   const guild = interaction.guild;
   const member = interaction.member;
   const value = interaction.values[0];
+
   const ticketName = `${value}-${member.user.username}`
     .toLowerCase()
     .replace(/[^a-z0-9-]/g, '-')
@@ -196,7 +225,10 @@ async function createTicket(interaction) {
     (c) => c.name === ticketName && c.type === ChannelType.GuildText
   );
   if (existing) {
-    await interaction.reply({ content: `Ya tienes un ticket abierto: ${existing}`, ephemeral: true });
+    await interaction.reply({
+      content: `Ya tienes un ticket abierto: ${existing}`,
+      ephemeral: true,
+    });
     return true;
   }
 
@@ -210,14 +242,23 @@ async function createTicket(interaction) {
       name: categoryName,
       type: ChannelType.GuildCategory,
       permissionOverwrites: [
-        { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-        { id: guild.members.me.id, allow: [PermissionFlagsBits.ViewChannel] },
+        {
+          id: guild.roles.everyone.id,
+          deny: [PermissionFlagsBits.ViewChannel],
+        },
+        {
+          id: guild.members.me.id,
+          allow: [PermissionFlagsBits.ViewChannel],
+        },
       ],
     });
   }
 
   const overwrites = [
-    { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+    {
+      id: guild.roles.everyone.id,
+      deny: [PermissionFlagsBits.ViewChannel],
+    },
     {
       id: member.id,
       allow: [
@@ -261,12 +302,14 @@ async function createTicket(interaction) {
     });
 
     const embed = new EmbedBuilder()
-      .setAuthor({ name: 'Envenenado RP' })
-      .setTitle(`Ticket abierto - ${value.charAt(0).toUpperCase()}${value.slice(1)}`)
+      .setAuthor({ name: 'XF L' })
+      .setTitle(
+        `Ticket abierto - ${value.charAt(0).toUpperCase()}${value.slice(1)}`
+      )
       .setDescription(welcomeMessage(value, member))
-      .setColor(0x9B59B6)
+      .setColor(0x9b59b6)
       .setImage(BANNER_URL)
-      .setFooter({ text: 'Powered by Bandido' });
+      .setFooter({ text: 'Powered by Casa' });
 
     await channel.send({
       content: `${member}`,
@@ -274,14 +317,21 @@ async function createTicket(interaction) {
       components: [buildActionView()],
     });
 
-    await interaction.reply({ content: `¡Ticket creado! ${channel}`, ephemeral: true });
+    await interaction.reply({
+      content: `¡Ticket creado! ${channel}`,
+      ephemeral: true,
+    });
 
     await sendTicketLog(guild, {
       title: '🎫 Ticket creado',
-      color: 0x57F287,
+      color: 0x57f287,
       user: member.user,
       fields: [
-        { name: 'Usuario', value: `${member} (\`${member.id}\`)`, inline: true },
+        {
+          name: 'Usuario',
+          value: `${member} (\`${member.id}\`)`,
+          inline: true,
+        },
         { name: 'Categoría', value: value, inline: true },
         { name: 'Canal', value: `${channel}`, inline: true },
       ],
@@ -289,29 +339,47 @@ async function createTicket(interaction) {
   } catch (error) {
     console.error('Error creating ticket:', error);
     if (interaction.replied || interaction.deferred) {
-      await interaction.followUp({ content: 'Hubo un error al crear tu ticket.', ephemeral: true });
+      await interaction.followUp({
+        content: 'Hubo un error al crear tu ticket.',
+        ephemeral: true,
+      });
     } else {
-      await interaction.reply({ content: 'Hubo un error al crear tu ticket.', ephemeral: true });
+      await interaction.reply({
+        content: 'Hubo un error al crear tu ticket.',
+        ephemeral: true,
+      });
     }
   }
+
   return true;
 }
 
 async function claimTicket(interaction) {
   if (!canManageTickets(interaction.member)) {
-    await interaction.reply({ content: 'No tienes permiso para reclamar este ticket.', ephemeral: true });
+    await interaction.reply({
+      content: 'No tienes permiso para reclamar este ticket.',
+      ephemeral: true,
+    });
     return true;
   }
 
-  await interaction.update({ components: [buildActionView(interaction.user.displayName)] });
-  await interaction.channel.send(`El ticket ha sido reclamado por ${interaction.user}.`);
+  await interaction.update({
+    components: [buildActionView(interaction.user.displayName)],
+  });
+  await interaction.channel.send(
+    `El ticket ha sido reclamado por ${interaction.user}.`
+  );
 
   await sendTicketLog(interaction.guild, {
     title: '🙋 Ticket reclamado',
-    color: 0x5865F2,
+    color: 0x5865f2,
     user: interaction.user,
     fields: [
-      { name: 'Staff', value: `${interaction.user} (\`${interaction.user.id}\`)`, inline: true },
+      {
+        name: 'Staff',
+        value: `${interaction.user} (\`${interaction.user.id}\`)`,
+        inline: true,
+      },
       { name: 'Canal', value: `${interaction.channel}`, inline: true },
     ],
   });
@@ -322,27 +390,41 @@ async function claimTicket(interaction) {
 async function closeTicket(interaction) {
   const isStaff = canManageTickets(interaction.member);
   const isCreator = interaction.channel.topic?.includes(interaction.user.id);
+
   if (!isStaff && !isCreator) {
-    await interaction.reply({ content: 'Solo el personal o quien creó el ticket puede cerrarlo.', ephemeral: true });
+    await interaction.reply({
+      content: 'Solo el personal o quien creó el ticket puede cerrarlo.',
+      ephemeral: true,
+    });
     return true;
   }
 
   await sendTicketLog(interaction.guild, {
     title: '🔒 Ticket cerrado',
-    color: 0xED4245,
+    color: 0xed4245,
     user: interaction.user,
     fields: [
-      { name: 'Cerrado por', value: `${interaction.user} (\`${interaction.user.id}\`)`, inline: true },
-      { name: 'Canal', value: `\`${interaction.channel.name}\``, inline: true },
+      {
+        name: 'Cerrado por',
+        value: `${interaction.user} (\`${interaction.user.id}\`)`,
+        inline: true,
+      },
+      {
+        name: 'Canal',
+        value: `\`${interaction.channel.name}\``,
+        inline: true,
+      },
     ],
   });
 
   const rateEmbed = new EmbedBuilder()
-    .setAuthor({ name: 'Envenenado RP' })
+    .setAuthor({ name: 'XF L' })
     .setTitle('¿Cómo calificas la atención?')
-    .setDescription('Selecciona de **1 a 5 estrellas**.\nEl ticket se cerrará al votar (o en 60 segundos).')
-    .setColor(0xFEE75C)
-    .setFooter({ text: 'Powered by Bandido' });
+    .setDescription(
+      'Selecciona de **1 a 5 estrellas**.\nEl ticket se cerrará al votar (o en 60 segundos).'
+    )
+    .setColor(0xfee75c)
+    .setFooter({ text: 'Powered by Casa' });
 
   await interaction.reply({
     embeds: [rateEmbed],
@@ -360,7 +442,10 @@ async function closeTicket(interaction) {
 async function rateTicket(interaction) {
   const stars = Number(interaction.customId.replace(RATE_PREFIX, ''));
   if (!stars || stars < 1 || stars > 5) {
-    await interaction.reply({ content: 'Calificación inválida.', ephemeral: true });
+    await interaction.reply({
+      content: 'Calificación inválida.',
+      ephemeral: true,
+    });
     return true;
   }
 
@@ -373,9 +458,11 @@ async function rateTicket(interaction) {
   });
 
   const thanks = new EmbedBuilder()
-    .setColor(0x57F287)
+    .setColor(0x57f287)
     .setTitle('¡Gracias por tu calificación!')
-    .setDescription(`Tu voto: **${starsText(stars)}** (${stars}/5)\nCerrando el ticket...`)
+    .setDescription(
+      `Tu voto: **${starsText(stars)}** (${stars}/5)\nCerrando el ticket...`
+    )
     .setFooter({ text: 'Powered by Bandido' });
 
   await interaction.update({
@@ -390,19 +477,24 @@ async function rateTicket(interaction) {
   return true;
 }
 
-export async function sendTicketPanel(channel) {
+export async function sendTicketPanel(channel, imageUrl = null) {
   const embed = new EmbedBuilder()
-    .setAuthor({ name: 'CasaB Ticket' })
+    .setAuthor({ name: 'XF L' })
     .setTitle('Ayuda y Soporte')
     .setDescription('Abre un ticket interactuando con el menú de abajo.')
     .setColor(0x000000)
-    .setFooter({ text: 'Powered by CasaB' });
+    .setFooter({ text: 'Powered by Casa' });
+
+  if (imageUrl) {
+    embed.setImage(imageUrl);
+  }
 
   await channel.send({ embeds: [embed], components: [buildPanelView()] });
 }
 
 export function isWisxoTicketInteraction(interaction) {
-  if (interaction.isStringSelectMenu() && interaction.customId === SELECT_ID) return true;
+  if (interaction.isStringSelectMenu() && interaction.customId === SELECT_ID)
+    return true;
   if (
     interaction.isButton() &&
     (interaction.customId === CLAIM_ID ||
