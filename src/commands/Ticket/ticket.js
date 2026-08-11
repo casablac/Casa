@@ -260,9 +260,9 @@ export default {
                         inline: true,
                     },
                     {
-                        name: 'Staff Role',
-                        value: staffRole ? staffRole.toString() : 'None specified.',
-                        inline:Aquí tienes **tu mismo archivo**, solo ordenado y con la indentación limpia. **Sin cambiar la lógica:**
+                       name: 'Staff Role',
+                       value: staffRole ? staffRole.toString() : 'None specified.',
+                       inline: true,
 
 ```js
 import { getColor } from '../../config/bot.js';
