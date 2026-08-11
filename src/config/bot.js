@@ -463,7 +463,7 @@ export const botConfig = {
 
     // Security and self-service systems.
     verification: true,
-    reactionRoles: false,
+    reactionRoles: true,
     joinToCreate: false,
 
     // Utility/quality-of-life modules.
