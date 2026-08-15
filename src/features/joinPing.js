@@ -38,17 +38,23 @@ export function setJoinPingConfig(guildId, data) {
 
 export async function handleJoinPing(member) {
   const cfg = getJoinPingConfig(member.guild.id);
-  if (!cfg?.enabled || !cfg?.channelId) return;
+
+  // 1) config del comando  2) si no, variable de entorno
+  const channelId =
+    (cfg?.enabled !== false && cfg?.channelId) ||
+    process.env.JOIN_PING_CHANNEL_ID ||
+    null;
+
+  if (!channelId) return;
 
   const channel =
-    member.guild.channels.cache.get(cfg.channelId) ||
-    (await member.guild.channels.fetch(cfg.channelId).catch(() => null));
+    member.guild.channels.cache.get(channelId) ||
+    (await member.guild.channels.fetch(channelId).catch(() => null));
 
   if (!channel?.isTextBased?.()) return;
 
   try {
     const msg = await channel.send(`${member}`);
-    // Borra el mensaje a los 2 segundos
     setTimeout(() => {
       msg.delete().catch(() => {});
     }, 2000);
