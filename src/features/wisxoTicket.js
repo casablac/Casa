@@ -21,7 +21,7 @@ const CLOSE_ID = 'wisxo_close_ticket_btn';
 const RATE_PREFIX = 'wisxo_rate_';
 
 const BANNER_URL =
-  'https://cdn.discordapp.com/icons/1416544949083836458/05914d2317db529643e65275bd5cfe62.webp?size=1024';
+  'https://cdn.discordapp.com/icons/1416544949083836458/a_393a715d84e57bf72283691e1fea0051.gif?animated=true&size=1024';
 
 const TICKET_OPTIONS = [
   {
@@ -176,7 +176,7 @@ async function sendTicketFeedback(guild, { user, stars, channelName }) {
   if (!channel) return;
 
   const embed = new EmbedBuilder()
-    .setAuthor({ name: 'XF L • Calificación de Ticket' })
+    .setAuthor({ name: 'zip • Calificación de Ticket' })
     .setTitle('Nueva calificación')
     .setColor(0xfee75c)
     .addFields(
@@ -303,7 +303,7 @@ async function createTicket(interaction) {
     });
 
     const embed = new EmbedBuilder()
-      .setAuthor({ name: 'XF L' })
+      .setAuthor({ name: 'zip' })
       .setTitle(
         `Ticket abierto - ${value.charAt(0).toUpperCase()}${value.slice(1)}`
       )
@@ -496,7 +496,7 @@ async function rateTicket(interaction) {
 
 export async function sendTicketPanel(channel, imageUrl = null) {
   const embed = new EmbedBuilder()
-    .setAuthor({ name: 'XF L' })
+    .setAuthor({ name: 'zip' })
     .setTitle('Ayuda y Soporte')
     .setDescription('Abre un ticket interactuando con el menú de abajo.')
     .setColor(0x000000)
