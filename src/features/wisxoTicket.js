@@ -27,7 +27,7 @@ const TICKET_OPTIONS = [
   {
     label: 'Soporte',
     description: 'Soporte general del servidor',
-    emoji: '💜',
+    emoji: '🆘',
     value: 'soporte',
   },
   {
