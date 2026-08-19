@@ -146,7 +146,19 @@ function welcomeMessage(value, member) {
     case 'partnership':
       return `Bienvenid@ ${member} aqui en este ticket puedes hacer alianza con nosotros.`;
     case 'leaker':
-      return `Bienvenid@ ${member}. Solicitud de Leaker`;
+      return (
+        `Bienvenid@ ${member}.\n\n` +
+        `**Solicitud de Leaker**\n` +
+        `Responde estas preguntas en el ticket:\n\n` +
+        `**1.** ¿Por qué quieres el rol de leaker?\n` +
+        `**2.** ¿Qué tipo de contenido subirías? (clips, videos, etc.)\n` +
+        `**3.** ¿Con qué frecuencia puedes subir?\n` +
+        `**4.** ¿Aceptas no hacer spam y seguir las reglas del server? (Sí/No)\n` +
+        `**5.** ¿Entiendes que el staff puede quitarte el rol si rompes las reglas? (Sí/No)\n\n` +
+        `Cuando termines, espera a que el staff revise tu postulación.`
+      );
+    default:
+      return `Bienvenid@ ${member}. Describe tu solicitud.`;
   }
 }
 
@@ -427,7 +439,6 @@ async function closeTicket(interaction) {
 
   const feedbackChannelId = getTicketFeedbackChannelId(interaction.guild.id);
 
-  // Sin feedback configurado → cierra directo
   if (!feedbackChannelId) {
     await interaction.reply({
       content: '🔒 Ticket cerrado. Eliminando canal...',
@@ -439,7 +450,6 @@ async function closeTicket(interaction) {
     return true;
   }
 
-  // Con feedback → muestra estrellas
   const rateEmbed = new EmbedBuilder()
     .setAuthor({ name: 'XF L' })
     .setTitle('¿Cómo calificas la atención?')
