@@ -36,6 +36,12 @@ const TICKET_OPTIONS = [
     emoji: '🤝',
     value: 'partnership',
   },
+  {
+    label: 'Leaker',
+    description: 'Solicitudes de Leaker',
+    emoji: '🍁',
+    value: 'leaker',
+  },
 ];
 
 function ensureConfigFile() {
@@ -139,8 +145,8 @@ function welcomeMessage(value, member) {
       return `Bienvenid@ ${member} a Tickets de soporte. Por favor, describe tu problema.`;
     case 'partnership':
       return `Bienvenid@ ${member} aqui en este ticket puedes hacer alianza con nosotros.`;
-    default:
-      return `Bienvenid@ ${member}. Describe tu solicitud.`;
+    case 'leaker':
+      return `Bienvenid@ ${member}. Solicitud de Leaker`;
   }
 }
 
